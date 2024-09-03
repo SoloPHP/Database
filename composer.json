@@ -1,0 +1,24 @@
+{
+  "name": "solophp/database",
+  "type": "library",
+  "description": "A simple database abstraction layer using PHP and PDO",
+  "keywords": ["database","dbal","pdo","php"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Vitaliy Olos",
+      "email": "vedastudio@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Solo\\": "Solo/"
+    }
+  },
+  "require": {
+    "php": ">=7.4",
+    "ext-pdo": "*"
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
