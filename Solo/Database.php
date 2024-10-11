@@ -87,7 +87,7 @@ class Database
                 case '?A':
                     if (is_array($value) && $value !== array_values($value)) {
                         foreach ($value as $key => &$v) {
-                            $v = '`' . $key . '`=' . (is_int($v) ? $v : $this->pdo->quote($v));
+                            $v = '`' . $key . '`=' . (is_int($v) ? $v : (is_bool($v) ? (int)$v : $this->pdo->quote($v)));
                         }
                         $part = implode(', ', $value);
                     } else {
