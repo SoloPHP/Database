@@ -96,6 +96,7 @@ class Database
                     }
                     break;
                 case '?t':
+                    if (!empty($this->prefix)) $value = $this->prefix . '_' . $value;
                     $part = '`' . $value . '`';
                     break;
                 case '?p':
