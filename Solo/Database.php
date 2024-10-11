@@ -18,6 +18,7 @@ class Database
         'cubrid' => 'cubrid:host=%s;port=%d;dbname=%s'
     ];
 
+    private string $prefix = '';
     private string $logLocation = __DIR__ . '/logs';
     private bool $logErrors = true;
 
@@ -153,6 +154,17 @@ class Database
     public function rowCount(): int
     {
         return $this->pdoStatement->rowCount();
+    }
+
+    public function setPrefix($prefix): self
+    {
+        $this->prefix = $prefix;
+        return $this;
+    }
+
+    public function getPrefix(): string
+    {
+        return $this->prefix;
     }
 
     public function setLogLocation(string $location): self
