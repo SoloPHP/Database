@@ -4,200 +4,305 @@ namespace Solo;
 
 use PDO;
 use PDOStatement;
+use PDOException;
+use Exception;
 
 class Database
 {
     protected PDO $pdo;
-    protected PDOStatement $pdoStatement;
+    protected ?PDOStatement $stmt = null;
 
     private const DSN_PATTERNS = [
         'mysql' => 'mysql:host=%s;port=%d;dbname=%s',
         'dblib' => 'dblib:host=%s:%d;dbname=%s',
         'pgsql' => 'pgsql:host=%s;port=%d;dbname=%s',
         'mssql' => 'sqlsrv:Server=%s,%d;Database=%s',
-        'cubrid' => 'cubrid:host=%s;port=%d;dbname=%s'
+        'cubrid' => 'cubrid:host=%s;port=%d;dbname=%s',
+        'sqlite' => 'sqlite:%s'
     ];
 
     private string $prefix = '';
     private string $logLocation = __DIR__ . '/logs';
     private bool $logErrors = true;
 
-    public function connect(string $hostname, string $username, string $password, string $dbname, string $type = 'mysql', int $port = 3306, array $options = []): self
-    {
+    /**
+     * Establishes a connection to the database.
+     *
+     * @param string $hostname The database host.
+     * @param string $username The username for the database.
+     * @param string $password The password for the database.
+     * @param string $dbname The name of the database.
+     * @param string $type The database type (e.g., mysql, pgsql).
+     * @param int $port The port for the database connection.
+     * @param array $options Additional PDO options.
+     * @return self
+     * @throws Exception If the connection fails.
+     */
+    public function connect(
+        string $hostname,
+        string $username,
+        string $password,
+        string $dbname,
+        string $type = 'mysql',
+        int $port = 3306,
+        array $options = []
+    ): self {
         $dsn = sprintf(self::DSN_PATTERNS[$type], $hostname, $port, $dbname);
+
         if ($type === 'mysql') {
             $options[PDO::MYSQL_ATTR_USE_BUFFERED_QUERY] = true;
             $options[PDO::ATTR_EMULATE_PREPARES] = true;
         }
+
         try {
             $this->pdo = new PDO($dsn, $username, $password, $options);
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (\PDOException $e) {
-            $this->error($e->getMessage());
+        } catch (PDOException $e) {
+            $this->handleError('Connection to the database failed: ' . $e->getMessage(), (int)$e->getCode());
         }
         return $this;
     }
 
     /**
-     * @param $sql
-     * @param ...$parameters
-     * @return false|PDOStatement
+     * Sets the table prefix for queries.
+     *
+     * @param string $prefix The table prefix to set.
+     * @return self Returns the current instance for method chaining.
      */
-    public function query($sql, ...$parameters)
-    {
-        $query = $this->prepare($sql, ...$parameters);
-        return $this->pdoStatement = $this->pdo->query($query);
-    }
-
-    public function prepare($query, ...$parameters): string
-    {
-        if (empty($parameters)) return $query;
-        $parsed_query = '';
-        $array = preg_split('~(\?[sifaAtp])~u', $query, 0, PREG_SPLIT_DELIM_CAPTURE);
-        $parameters_num = count($parameters);
-        $placeholders_num = floor(count($array) / 2);
-        if ($placeholders_num != $parameters_num) {
-            $this->error("Number of args ($parameters_num) doesn't match number of placeholders ($placeholders_num) in [$query]");
-        }
-        foreach ($array as $i => $part) {
-            if (($i % 2) == 0) {
-                $parsed_query .= $part;
-                continue;
-            }
-
-            $value = array_shift($parameters);
-            switch ($part) {
-                case '?s':
-                    $part = $this->pdo->quote($value);
-                    break;
-                case '?i':
-                    $part = is_int($value) ? $value : (int)$value;
-                    break;
-                case '?f':
-                    $part = is_float($value) ? $value : floatval(str_replace(',', '.', $value));
-                    break;
-                case '?a':
-                    if (!is_array($value)) {
-                        $this->error("?a placeholder expects array, " . gettype($value) . " given");
-                    }
-                    foreach ($value as &$v) {
-                        $v = is_int($v) ? $v : $this->pdo->quote($v);
-                    }
-                    $part = implode(',', $value);
-                    break;
-                case '?A':
-                    if (is_array($value) && $value !== array_values($value)) {
-                        foreach ($value as $key => &$v) {
-                            $v = '`' . $key . '`=' . (is_int($v) ? $v : (is_bool($v) ? (int)$v : $this->pdo->quote($v)));
-                        }
-                        $part = implode(', ', $value);
-                    } else {
-                        $this->error("?A placeholder expects Associative array, " . gettype($value) . " given");
-                    }
-                    break;
-                case '?t':
-                    if (!empty($this->prefix)) $value = $this->prefix . '_' . $value;
-                    $part = '`' . $value . '`';
-                    break;
-                case '?p':
-                    $part = $value;
-                    break;
-            }
-            $parsed_query .= $part;
-        }
-        return $parsed_query;
-    }
-
-    /** Fetches all rows from a result set and return as array of objects.
-     * If $primaryKey return associative array of objects
-     * @return array|false
-     */
-    public function results($primaryKey = '')
-    {
-        $results = $this->pdoStatement->fetchAll($this->pdo::FETCH_CLASS);
-        if (!empty($primaryKey)) {
-            $associativeResults = array();
-            foreach ($results as $row) {
-                $associativeResults[$row->$primaryKey] = $row;
-            }
-            return $associativeResults;
-        } else {
-            return $results;
-        }
-    }
-
-    /** Fetches one row and returns it as an object
-     * If $column is given, returns a single column of a result set
-     */
-    public function result($column = null)
-    {
-        if ($column) {
-            $data = $this->pdoStatement->fetch();
-            if (isset($data[$column])) {
-                return $data[$column];
-            } else {
-                $this->error("$column is not present in result set");
-            }
-        } else {
-            return $this->pdoStatement->fetchObject();
-        }
-    }
-
-    /**
-     * @return string|false
-     */
-    public function lastInsertId()
-    {
-        return $this->pdo->lastInsertId();
-    }
-
-    /** Affected rows */
-    public function rowCount(): int
-    {
-        return $this->pdoStatement->rowCount();
-    }
-
-    public function setPrefix($prefix): self
+    public function setPrefix(string $prefix): self
     {
         $this->prefix = $prefix;
         return $this;
     }
 
+    /**
+     * Gets the current table prefix.
+     *
+     * @return string The current table prefix.
+     */
     public function getPrefix(): string
     {
         return $this->prefix;
     }
 
-    public function setLogLocation(string $location): self
+    /**
+     * Sets the log location.
+     *
+     * @param string $logLocation The directory path to store logs.
+     * @return self Returns the current instance for method chaining.
+     */
+    public function setLogLocation(string $logLocation): self
     {
-        $this->logLocation = $location;
-        $this->ensureLogLocationExists();
+        $this->logLocation = rtrim($logLocation, '/');
         return $this;
     }
 
+    /**
+     * Enables or disables error logging.
+     *
+     * @param bool $logErrors Whether to enable error logging.
+     * @return self Returns the current instance for method chaining.
+     */
     public function setLogErrors(bool $logErrors): self
     {
         $this->logErrors = $logErrors;
         return $this;
     }
 
-    private function ensureLogLocationExists(): void
+    /**
+     * Handles the error based on the logErrors setting.
+     *
+     * @param string $message The error message.
+     * @param int $code The error code.
+     * @throws Exception If logErrors is disabled.
+     */
+    private function handleError(string $message, int $code = 0): void
     {
-        if (!is_dir($this->logLocation)) {
-            mkdir($this->logLocation, 0777, true);
-            file_put_contents($this->logLocation . '/.htaccess', "order deny,allow\ndeny from all");
+        if ($this->logErrors) {
+            $this->logError($message);
+        } else {
+            throw new Exception($message, $code);
         }
     }
 
     /**
-     * @throws \Exception
+     * Logs the error message if logging is enabled.
+     *
+     * @param string $message The error message to log.
      */
-    private function error(string $message): void
+    private function logError(string $message): void
     {
-        if ($this->logErrors) {
-            $logString = sprintf("[%s] Error: %s%s----------------------%s", date('d/m/Y H:i:s'), $message, PHP_EOL, PHP_EOL);
-            file_put_contents($this->logLocation . '/sql.txt', $logString, FILE_APPEND);
+        if (!file_exists($this->logLocation)) {
+            mkdir($this->logLocation, 0777, true);
         }
-        throw new \Exception($message);
+
+        $logFile = $this->logLocation . '/db_errors.log';
+
+        $maxFileSize = 1024 * 1024; // 1MB
+
+        if (file_exists($logFile) && filesize($logFile) >= $maxFileSize) {
+            $this->rotateLog($logFile);
+        }
+
+        $date = date('Y-m-d H:i:s');
+        $formattedMessage = "[$date] - $message" . PHP_EOL;
+
+        file_put_contents($logFile, $formattedMessage, FILE_APPEND);
+    }
+
+    /**
+     * Performs log rotation.
+     *
+     * @param string $logFile The log file to rotate.
+     */
+    private function rotateLog(string $logFile): void
+    {
+        $rotatedLogFile = $logFile . '.' . date('Y-m-d_H-i-s');
+
+        rename($logFile, $rotatedLogFile);
+
+        touch($logFile);
+    }
+
+    /**
+     * Prepares and executes an SQL query.
+     *
+     * @param string $sql The SQL query.
+     * @param mixed ...$params The parameters to bind to the query.
+     * @return self Returns the current instance for method chaining.
+     * @throws Exception If the query execution fails.
+     */
+    public function query(string $sql, ...$params): self
+    {
+        try {
+            $parsedSql = $this->build($sql, ...$params);
+            $this->stmt = $this->pdo->prepare($parsedSql);
+            $this->stmt->execute();
+        } catch (PDOException $e) {
+            $this->handleError('Query failed: ' . $e->getMessage() . ' | SQL: ' . $sql, (int)$e->getCode());
+        }
+        return $this;
+    }
+
+    /**
+     * Builds the SQL query by replacing placeholders with parameters.
+     *
+     * @param string $sql The SQL query containing placeholders.
+     * @param mixed ...$params The parameters to bind to the placeholders.
+     * @return string The SQL query with bound parameters.
+     * @throws Exception If an unknown placeholder type is encountered.
+     */
+    public function build(string $sql, ...$params): string
+    {
+        if (empty($params)) return $sql;
+
+        $offset = 0;
+
+        return preg_replace_callback('/\?(s|i|f|a|A|t|p)/', function ($matches) use (&$offset, $params) {
+            $param = $params[$offset++] ?? null;
+            $type = $matches[1];
+
+            switch ($type) {
+                case 's':
+                    return $this->pdo->quote($param);
+                case 'i':
+                    return (int)$param;
+                case 'f':
+                    return is_float($param) ? $param : floatval(str_replace(',', '.', $param));
+                case 'a':
+                    if (!is_array($param)) {
+                        $this->handleError("Expected array for ?a placeholder, " . gettype($param) . " given");
+                    }
+                    return '(' . implode(', ', array_map([$this->pdo, 'quote'], $param)) . ')';
+                case 'A':
+                    if (!is_array($param) || $param === array_values($param)) {
+                        $this->handleError("Expected associative array for ?A placeholder, " . gettype($param) . " given");
+                    }
+                    $sets = [];
+                    foreach ($param as $key => $value) {
+                        $sets[] = "`" . str_replace("`", "``", $key) . "` = " . (is_int($value) ? $value : (is_bool($value) ? (int)$value : $this->pdo->quote($value)));
+                    }
+                    return implode(', ', $sets);
+                case 't':
+                    return '`' . (!empty($this->prefix) ? $this->prefix . '_' . $param : $param) . '`';
+                case 'p':
+                    return $param;
+                default:
+                    $this->handleError("Unknown placeholder type: ?$type");
+            }
+        }, $sql);
+    }
+
+    /**
+     * Fetches all rows from a result set and returns them as an array of objects.
+     * If a primary key is provided, returns an associative array of objects keyed by that primary key.
+     *
+     * @param string $primaryKey The column name to use as the associative array key (optional).
+     * @return array|false An array of objects or false on failure.
+     */
+    public function results(string $primaryKey = ''): array|false
+    {
+        $results = $this->stmt->fetchAll($this->pdo::FETCH_CLASS);
+
+        if (empty($primaryKey)) {
+            return $results;
+        }
+
+        $associativeResults = [];
+        foreach ($results as $row) {
+            $associativeResults[$row->$primaryKey] = $row;
+        }
+
+        return $associativeResults;
+    }
+
+    /**
+     * Fetches one row from the result set as an object.
+     * If a column name is given, returns the value of that column instead.
+     *
+     * @param string|null $column The name of the column to fetch (optional).
+     * @return mixed The fetched column value or an object.
+     * @throws Exception If the column is not present in the result set.
+     */
+    public function result(?string $column = null): mixed
+    {
+        if (!$column) {
+            return $this->stmt->fetchObject();
+        }
+
+        $resultArray = $this->stmt->fetch(PDO::FETCH_ASSOC);
+        if (!array_key_exists($column, $resultArray)) {
+            $this->handleError("Column '$column' not found in result set.");
+        }
+
+        return $resultArray[$column];
+    }
+
+    /**
+     * Returns the ID of the last inserted row.
+     *
+     * @return string|false The last inserted ID or false on failure.
+     */
+    public function lastInsertId(): string|false
+    {
+        return $this->pdo->lastInsertId();
+    }
+
+    /**
+     * Returns the number of rows affected by the last SQL statement.
+     *
+     * @return int The number of affected rows.
+     */
+    public function rowCount(): int
+    {
+        return $this->stmt->rowCount();
+    }
+
+    /**
+     * Cleans up resources used by the statement.
+     */
+    public function __destruct()
+    {
+        $this->stmt = null;
     }
 }
