@@ -190,16 +190,26 @@ class Database
      * @param string $sql The SQL query containing placeholders.
      * @param mixed ...$params The parameters to bind to the placeholders.
      * @return string The SQL query with bound parameters.
-     * @throws Exception If an unknown placeholder type is encountered.
+     * @throws Exception If an unknown placeholder type is encountered or if there's a mismatch in placeholder count.
      */
     public function build(string $sql, ...$params): string
     {
-        if (empty($params)) return $sql;
+        $pattern = '/\?(s|i|f|a|A|t|p)/';
 
-        $offset = 0;
+        $placeholderCount = preg_match_all($pattern, $sql);
 
-        return preg_replace_callback('/\?(s|i|f|a|A|t|p)/', function ($matches) use (&$offset, $params) {
-            $param = $params[$offset++] ?? null;
+        if ($placeholderCount !== count($params)) {
+            $this->handleError("Mismatch between number of placeholders ($placeholderCount) and provided parameters (" . count($params) . ")");
+        }
+
+        if ($placeholderCount === 0) {
+            return $sql;
+        }
+
+        $index = 0;
+
+        return preg_replace_callback($pattern, function ($matches) use (&$index, $params) {
+            $param = $params[$index++];
             $type = $matches[1];
 
             switch ($type) {
@@ -238,7 +248,7 @@ class Database
      * If a primary key is provided, returns an associative array of objects keyed by that primary key.
      *
      * @param string $primaryKey The column name to use as the associative array key (optional).
-     * @return array|false An array of objects or false on failure.
+     * @return array|false An array of objects or false if no results are found.
      */
     public function results(string $primaryKey = ''): array|false
     {
