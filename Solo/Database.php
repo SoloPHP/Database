@@ -250,7 +250,7 @@ class Database
      * @param string $primaryKey The column name to use as the associative array key (optional).
      * @return array|false An array of objects or false if no results are found.
      */
-    public function results(string $primaryKey = ''): array|false
+    public function results(string $primaryKey = '')
     {
         $results = $this->stmt->fetchAll($this->pdo::FETCH_CLASS);
 
@@ -271,10 +271,10 @@ class Database
      * If a column name is given, returns the value of that column instead.
      *
      * @param string|null $column The name of the column to fetch (optional).
-     * @return mixed The fetched column value or an object.
+     * @return array|object|false The fetched column value or an object.
      * @throws Exception If the column is not present in the result set.
      */
-    public function result(?string $column = null): mixed
+    public function result(?string $column = null)
     {
         if (!$column) {
             return $this->stmt->fetchObject();
@@ -293,7 +293,7 @@ class Database
      *
      * @return string|false The last inserted ID or false on failure.
      */
-    public function lastInsertId(): string|false
+    public function lastInsertId()
     {
         return $this->pdo->lastInsertId();
     }
