@@ -230,7 +230,14 @@ class Database
                     }
                     $sets = [];
                     foreach ($param as $key => $value) {
-                        $sets[] = "`" . str_replace("`", "``", $key) . "` = " . (is_int($value) ? $value : (is_bool($value) ? (int)$value : $this->pdo->quote($value)));
+                        $sets[] = "`" . str_replace("`", "``", $key) . "` = " .
+                            (is_null($value) ? 'NULL' :
+                                (is_int($value) ? $value :
+                                    (is_bool($value) ? (int)$value :
+                                        $this->pdo->quote($value)
+                                    )
+                                )
+                            );
                     }
                     return implode(', ', $sets);
                 case 't':
