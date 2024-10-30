@@ -224,7 +224,7 @@ class Database
                     if (!is_array($param)) {
                         $this->handleError("Expected array for ?a placeholder, " . gettype($param) . " given");
                     }
-                    return '(' . implode(', ', array_map([$this->pdo, 'quote'], $param)) . ')';
+                    return implode(', ', array_map([$this->pdo, 'quote'], $param));
                 case 'A':
                     if (!is_array($param) || $param === array_values($param)) {
                         $this->handleError("Expected associative array for ?A placeholder, " . gettype($param) . " given");
