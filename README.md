@@ -1,59 +1,46 @@
-# Solo Database Class
+# Solo Database
 
-A lightweight, secure, and flexible PHP database wrapper class that provides an elegant interface for database operations with built-in error handling and logging capabilities.
-
-## Features
-
-- Support for multiple database types (MySQL, PostgreSQL, MSSQL, SQLite, CUBRID)
-- Secure parameter binding with type-specific placeholders
-- Built-in error logging with rotation
-- Table prefix support
-- Method chaining
-- Strict type checking
-- UTF-8 support for MySQL
-- Flexible result fetching
-- PDO-based for security and compatibility
+Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.
 
 ## Installation
 
 ```bash
-composer require solo/database
+composer require solophp/database
 ```
+
+## Features
+
+- Support for MySQL, PostgreSQL, SQLite, and other databases
+- Safe query building with type-specific placeholders
+- Optional table prefixing
+- Integration with PSR-3 compatible Solo Logger
+- Clean and flexible API
+
+## Requirements
+
+- PHP 8.1+
+- PDO extension
+- Solo Logger ^1.0
 
 ## Usage
 
-### Basic Connection
-
 ```php
-use Solo\Database;
+use Solo\Database\{Config, Connection};
+use Solo\Logger;
 
-$db = new Database();
-$db->connect(
+// Configure database connection
+$config = new Config(
     hostname: 'localhost',
     username: 'user',
-    password: 'password',
-    dbname: 'mydatabase',
-    type: 'mysql',    // Optional, defaults to 'mysql'
-    port: 3306        // Optional, defaults to 3306
+    password: 'pass',
+    dbname: 'mydb',
+    prefix: 'prefix_'
 );
-```
 
-### Query Execution with Type-Safe Placeholders
-
-The class supports various placeholder types for safe parameter binding:
-
-- `?s` - String values
-- `?i` - Integer values
-- `?f` - Float values
-- `?a` - Array values (for IN clauses)
-- `?A` - Associative array (for SET clauses)
-- `?t` - Table names (automatically adds prefix)
-- `?p` - Raw parameter (use with caution)
-
-```php
-// Simple SELECT query
-$db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1);
-$user = $db->result();
+// Create connection with optional logging
+$logger = new Logger('/path/to/logs/db.log');
+$connection = new Connection($config, $logger);
+$db = new Database($connection);
 
 // INSERT with associative array
 $userData = [
@@ -67,11 +54,7 @@ $db->query("INSERT INTO ?t SET ?A", 'users', $userData);
 $ids = [1, 2, 3];
 $db->query("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids);
 $users = $db->results();
-```
 
-### Fetching Results
-
-```php
 // Fetch all results as array of objects
 $users = $db->query("SELECT * FROM ?t", 'users')->results();
 
@@ -85,40 +68,16 @@ $user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->result();
 $name = $db->query("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->result('name');
 ```
 
-### Table Prefixes
+## Query Placeholders
 
-```php
-$db->setPrefix('myapp');
-// Will execute: SELECT * FROM `myapp_users`
-$db->query("SELECT * FROM ?t", 'users');
-```
-
-### Error Handling and Logging
-
-```php
-// Configure logging
-$db->setLogLocation('/path/to/logs')
-   ->setLogErrors(true);
-
-// Disable logging to throw exceptions instead
-$db->setLogErrors(false);
-```
-
-## Error Logging
-
-By default, errors are logged to `logs/db_errors.log` in the class directory. The log file automatically rotates when it reaches 1MB in size. Each log entry includes:
-
-- Timestamp
-- Error message
-- SQL query (if applicable)
-- Error code
-
-## Requirements
-
-- PHP 7.4 or higher
-- PDO extension
-- Appropriate database driver (mysql, pgsql, sqlite, etc.)
+- `?s` - String (safely quoted)
+- `?i` - Integer
+- `?f` - Float
+- `?a` - Array (for IN statements)
+- `?A` - Associative Array (for SET statements)
+- `?t` - Table name (with prefix)
+- `?p` - Raw parameter
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License. See LICENSE file for details.

@@ -1,7 +1,7 @@
 {
   "name": "solophp/database",
   "type": "library",
-  "description": "A simple database abstraction layer using PHP and PDO",
+  "description": "Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.",
   "keywords": ["database","dbal","pdo","php"],
   "license": "MIT",
   "authors": [
@@ -16,7 +16,8 @@
     }
   },
   "require": {
-    "php": ">=7.4",
+    "php": ">=8.1",
+    "solophp/logger": "^v1.0",
     "ext-pdo": "*"
   },
   "minimum-stability": "dev",
