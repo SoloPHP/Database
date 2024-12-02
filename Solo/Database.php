@@ -58,6 +58,14 @@ class Database
     }
 
     /**
+     * Build SQL query with placeholders
+     */
+    public function build(string $sql, ...$params): string
+    {
+        return $this->queryBuilder->build($sql, ...$params);
+    }
+
+    /**
      * Get all results
      *
      * @param string $primaryKey Optional primary key for array keys
