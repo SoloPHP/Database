@@ -10,15 +10,15 @@ composer require solophp/database
 
 ## Features
 
-- Support for MySQL, PostgreSQL, SQLite, and other databases
+- Support for MySQL, PostgreSQL, SQLite, SQL Server, and other PDO-compatible databases
 - Safe query building with type-specific placeholders
 - Optional table prefixing
 - Integration with PSR-3 compatible Solo Logger
-- Clean and flexible API
+- Clean and flexible API with method chaining
 
 ## Requirements
 
-- PHP 8.1+
+- PHP 8.2+
 - PDO extension
 - Solo Logger ^1.0
 
@@ -46,26 +46,30 @@ $db = new Database($connection);
 $userData = [
     'name' => 'John Doe',
     'email' => 'john@example.com',
-    'age' => 25
+    'age' => 25,
+    'created_at' => new DateTimeImmutable()
 ];
-$db->query("INSERT INTO ?t SET ?A", 'users', $userData);
+$db->executeQuery("INSERT INTO ?t SET ?A", 'users', $userData);
 
 // SELECT with IN clause
 $ids = [1, 2, 3];
-$db->query("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids);
-$users = $db->results();
+$db->executeQuery("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids);
+$users = $db->fetchAll();
 
 // Fetch all results as array of objects
-$users = $db->query("SELECT * FROM ?t", 'users')->results();
+$users = $db->executeQuery("SELECT * FROM ?t", 'users')->fetchAll();
 
 // Fetch all results with primary key as array key
-$users = $db->query("SELECT * FROM ?t", 'users')->results('id');
+$users = $db->executeQuery("SELECT * FROM ?t", 'users')->fetchAll('id');
 
 // Fetch single row as object
-$user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->result();
+$user = $db->executeQuery("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchObject();
+
+// Fetch single row as associative array
+$user = $db->executeQuery("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchAssoc();
 
 // Fetch single column value
-$name = $db->query("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->result('name');
+$name = $db->executeQuery("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->fetchObject('name');
 ```
 
 ## Query Placeholders
@@ -76,7 +80,33 @@ $name = $db->query("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->result('nam
 - `?a` - Array (for IN statements)
 - `?A` - Associative Array (for SET statements)
 - `?t` - Table name (with prefix)
-- `?p` - Raw parameter
+- `?p` - Raw parameter (unescaped)
+- `?d` - Date (expects DateTimeImmutable, formats according to database type)
+
+## Database Support
+
+The library automatically handles date formatting for different database types:
+
+- PostgreSQL: `Y-m-d H:i:s.u P`
+- MySQL: `Y-m-d H:i:s`
+- SQLite: `Y-m-d H:i:s`
+- SQL Server: `Y-m-d H:i:s.u`
+- DBLIB: `Y-m-d H:i:s`
+- CUBRID: `Y-m-d H:i:s`
+
+## Return Types
+
+The library provides type-safe return values:
+
+- `fetchAll()`: Returns `array<int|string, stdClass>`
+- `fetchAssoc()`: Returns `array<string, mixed>|string|int|float|bool|null`
+- `fetchObject()`: Returns `stdClass|string|int|float|bool|null`
+- `rowCount()`: Returns `int`
+- `lastInsertId()`: Returns `string|false`
+
+## Error Handling
+
+All database operations are wrapped in try-catch blocks and will throw exceptions with detailed error messages when queries fail. When a logger is configured, all errors are automatically logged with relevant context information.
 
 ## License
 

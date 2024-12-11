@@ -8,6 +8,7 @@ use PDOException;
 use Exception;
 use Solo\Database\Connection;
 use Solo\Database\QueryBuilder;
+use stdClass;
 
 /**
  * Main database class for query execution
@@ -41,10 +42,10 @@ class Database
      * @throws Exception When query execution fails
      * @return self For method chaining
      */
-    public function query(string $sql, ...$params): self
+    public function executeQuery(string $sql, mixed ...$params): self
     {
         try {
-            $parsedSql = $this->queryBuilder->build($sql, ...$params);
+            $parsedSql = $this->queryBuilder->prepare($sql, ...$params);
             $this->stmt = $this->pdo->prepare($parsedSql);
             $this->stmt->execute();
         } catch (PDOException $e) {
@@ -58,20 +59,20 @@ class Database
     }
 
     /**
-     * Build SQL query with placeholders
+     * Prepare SQL query with placeholders
      */
-    public function build(string $sql, ...$params): string
+    public function prepare(string $sql, mixed ...$params): string
     {
-        return $this->queryBuilder->build($sql, ...$params);
+        return $this->queryBuilder->prepare($sql, ...$params);
     }
 
     /**
      * Get all results
      *
      * @param string $primaryKey Optional primary key for array keys
-     * @return array Query results
+     * @return array<int|string, stdClass> Query results as array of objects
      */
-    public function results(string $primaryKey = ''): array
+    public function fetchAll(string $primaryKey = ''): array
     {
         $results = $this->stmt->fetchAll($this->pdo::FETCH_CLASS);
 
@@ -83,19 +84,51 @@ class Database
     }
 
     /**
+     * Get single result as associative array
+     *
+     * @param string|null $column Optional specific column to fetch
+     * @return array<string, mixed>|string|int|float|bool|null Single row or column value
+     * @throws Exception When specified column not found
+     */
+    public function fetchAssoc(?string $column = null): array|string|int|float|bool|null
+    {
+        $result = $this->stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$result) {
+            return null;
+        }
+
+        if (!$column) {
+            return $result;
+        }
+
+        if (!isset($result[$column])) {
+            $message = sprintf("Column '%s' not found in result set", $column);
+            $this->logger?->error($message);
+            throw new Exception($message);
+        }
+
+        return $result[$column];
+    }
+
+    /**
      * Get single result
      *
      * @param string|null $column Optional specific column to fetch
      * @throws Exception When specified column not found
-     * @return mixed Query result
+     * @return stdClass|string|int|float|bool|null Query result
      */
-    public function result(?string $column = null)
+    public function fetchObject(?string $column = null): stdClass|string|int|float|bool|null
     {
         if (!$column) {
             return $this->stmt->fetchObject();
         }
 
         $resultArray = $this->stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$resultArray) {
+            return null;
+        }
+
         if (!isset($resultArray[$column])) {
             $message = sprintf("Column '%s' not found in result set", $column);
             $this->logger?->error($message);

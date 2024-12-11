@@ -5,18 +5,43 @@ namespace Solo\Database;
 use Solo\Logger;
 use Exception;
 use PDO;
+use DateTimeImmutable;
 
 /**
- * SQL query builder class
+ * SQL query builder class for generating safe SQL queries with placeholders
+ *
+ * Supports various types of placeholders:
+ * - ?s - string (quoted)
+ * - ?i - integer
+ * - ?f - float
+ * - ?a - array (for IN clauses)
+ * - ?A - associative array (for SET clauses)
+ * - ?t - table name (with prefix)
+ * - ?p - raw parameter
+ * - ?d - date (DateTimeImmutable)
  */
-class QueryBuilder
+readonly class QueryBuilder
 {
+    /**
+     * Database date formats for different drivers
+     *
+     * Keys are PDO driver names, values are date format patterns
+     */
+    private const DATE_FORMATS = [
+        'pgsql' => 'Y-m-d H:i:s.u P',
+        'mysql' => 'Y-m-d H:i:s',
+        'sqlite' => 'Y-m-d H:i:s',
+        'sqlsrv' => 'Y-m-d H:i:s.u',
+        'dblib' => 'Y-m-d H:i:s',
+        'cubrid' => 'Y-m-d H:i:s',
+    ];
+
     /**
      * Initialize query builder
      *
-     * @param PDO $pdo PDO instance
-     * @param string $prefix Table prefix
-     * @param Logger|null $logger Optional logger instance
+     * @param PDO $pdo PDO instance for database connection
+     * @param string $prefix Optional table prefix for all queries
+     * @param Logger|null $logger Optional logger instance for error logging
      */
     public function __construct(
         private PDO $pdo,
@@ -25,16 +50,16 @@ class QueryBuilder
     ) {}
 
     /**
-     * Build SQL query with placeholders
+     * Prepare SQL query with placeholders
      *
      * @param string $sql SQL query with placeholders
      * @param mixed ...$params Parameters to replace placeholders
-     * @throws Exception When placeholder count doesn't match parameters count
      * @return string Built SQL query
+     * @throws Exception When placeholder count doesn't match parameters count
      */
-    public function build(string $sql, ...$params): string
+    public function prepare(string $sql, ...$params): string
     {
-        $pattern = '/\?([sifaAtp])/';
+        $pattern = '/\?([sifaAtpd])/';
         $placeholderCount = preg_match_all($pattern, $sql);
 
         if ($placeholderCount !== count($params)) {
@@ -60,12 +85,20 @@ class QueryBuilder
     /**
      * Replace parameter placeholder with actual value
      *
-     * @param string $type Placeholder type (s|i|f|a|A|t|p)
+     * @param string $type Placeholder type:
+     *                     s - string (quoted)
+     *                     i - integer
+     *                     f - float
+     *                     a - array (for IN clauses)
+     *                     A - associative array (for SET clauses)
+     *                     t - table name (with prefix)
+     *                     p - raw parameter
+     *                     d - date (DateTimeImmutable)
      * @param mixed $param Parameter value
-     * @throws Exception When parameter type is invalid
      * @return string Replaced value
+     * @throws Exception When parameter type is invalid
      */
-    private function replaceParameter(string $type, $param): string
+    private function replaceParameter(string $type, mixed $param): string
     {
         return match ($type) {
             's' => $this->pdo->quote($param),
@@ -75,6 +108,7 @@ class QueryBuilder
             'A' => $this->handleAssociativeArrayParameter($param),
             't' => $this->handleTableParameter($param),
             'p' => $param,
+            'd' => $this->handleDateParameter($param),
             default => $this->handleUnknownType($type),
         };
     }
@@ -83,7 +117,8 @@ class QueryBuilder
      * Handle unknown placeholder type
      *
      * @param string $type Invalid placeholder type
-     * @throws Exception Always
+     * @throws Exception Always throws to indicate invalid type
+     * @return never
      */
     private function handleUnknownType(string $type): never
     {
@@ -96,10 +131,10 @@ class QueryBuilder
      * Handle array parameter for IN clauses
      *
      * @param mixed $param Expected to be array
-     * @throws Exception When parameter is not array
      * @return string Comma-separated quoted values
+     * @throws Exception When parameter is not array
      */
-    private function handleArrayParameter($param): string
+    private function handleArrayParameter(mixed $param): string
     {
         if (!is_array($param)) {
             $message = sprintf(
@@ -116,10 +151,10 @@ class QueryBuilder
      * Handle associative array parameter for SET clauses
      *
      * @param mixed $param Expected to be associative array
+     * @return string SET clause with key-value pairs
      * @throws Exception When parameter is not associative array
-     * @return string SET clause
      */
-    private function handleAssociativeArrayParameter($param): string
+    private function handleAssociativeArrayParameter(mixed $param): string
     {
         if (!is_array($param) || $param === array_values($param)) {
             $message = sprintf(
@@ -144,7 +179,7 @@ class QueryBuilder
      * @param mixed $value Column value
      * @return string Formatted key-value pair
      */
-    private function formatKeyValuePair(string $key, $value): string
+    private function formatKeyValuePair(string $key, mixed $value): string
     {
         $escapedKey = "`" . str_replace("`", "``", $key) . "`";
 
@@ -152,6 +187,7 @@ class QueryBuilder
             is_null($value) => 'NULL',
             is_int($value), is_float($value) => $value,
             is_bool($value) => (int)$value,
+            ($value instanceof DateTimeImmutable) => $value->format($this->getDateFormatForDatabase()),
             default => $this->pdo->quote($value),
         };
 
@@ -167,5 +203,37 @@ class QueryBuilder
     private function handleTableParameter(string $param): string
     {
         return '`' . (!empty($this->prefix) ? $this->prefix . '_' . $param : $param) . '`';
+    }
+
+    /**
+     * Get date format for current database type
+     *
+     * @return string Date format pattern according to current PDO driver
+     */
+    private function getDateFormatForDatabase(): string
+    {
+        $dbType = strtolower($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        return self::DATE_FORMATS[$dbType] ?? self::DATE_FORMATS['mysql'];
+    }
+
+    /**
+     * Handle date parameter formatting
+     *
+     * @param mixed $param Expected to be DateTimeImmutable
+     * @return string Formatted date string according to database format
+     * @throws Exception When parameter is not DateTimeImmutable
+     */
+    private function handleDateParameter(mixed $param): string
+    {
+        if (!$param instanceof DateTimeImmutable) {
+            $message = sprintf(
+                "Expected DateTimeImmutable for ?d placeholder, %s given",
+                gettype($param)
+            );
+            $this->logger?->error($message);
+            throw new Exception($message);
+        }
+
+        return $param->format($this->getDateFormatForDatabase());
     }
 }
