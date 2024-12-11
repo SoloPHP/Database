@@ -187,7 +187,7 @@ readonly class QueryBuilder
             is_null($value) => 'NULL',
             is_int($value), is_float($value) => $value,
             is_bool($value) => (int)$value,
-            ($value instanceof DateTimeImmutable) => $value->format($this->getDateFormatForDatabase()),
+            ($value instanceof DateTimeImmutable) => $this->pdo->quote($value->format($this->getDateFormatForDatabase())),
             default => $this->pdo->quote($value),
         };
 
