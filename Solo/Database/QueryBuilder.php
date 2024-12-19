@@ -8,7 +8,7 @@ use PDO;
 use DateTimeImmutable;
 
 /**
- * SQL query builder class for generating safe SQL queries with placeholders
+ * SQL query builder class for generating safe SQL queries with placeholders.
  *
  * Supports various types of placeholders:
  * - ?s - string (quoted)
@@ -19,6 +19,7 @@ use DateTimeImmutable;
  * - ?t - table name (with prefix)
  * - ?p - raw parameter
  * - ?d - date (DateTimeImmutable)
+ * - ?l - LIKE parameter (adds '%' for LIKE queries)
  */
 readonly class QueryBuilder
 {
@@ -59,7 +60,7 @@ readonly class QueryBuilder
      */
     public function prepare(string $sql, ...$params): string
     {
-        $pattern = '/\?([sifaAtpd])/';
+        $pattern = '/\?([sifaAtpdl])/';
         $placeholderCount = preg_match_all($pattern, $sql);
 
         if ($placeholderCount !== count($params)) {
@@ -94,6 +95,7 @@ readonly class QueryBuilder
      *                     t - table name (with prefix)
      *                     p - raw parameter
      *                     d - date (DateTimeImmutable)
+     *                     l - LIKE parameter (adds '%' for LIKE queries)
      * @param mixed $param Parameter value
      * @return string Replaced value
      * @throws Exception When parameter type is invalid
@@ -109,6 +111,7 @@ readonly class QueryBuilder
             't' => $this->handleTableParameter($param),
             'p' => $param,
             'd' => $this->handleDateParameter($param),
+            'l' => $this->handleLikeParameter($param),
             default => $this->handleUnknownType($type),
         };
     }
@@ -235,5 +238,17 @@ readonly class QueryBuilder
         }
 
         return $param->format($this->getDateFormatForDatabase());
+    }
+
+    /**
+     * Handle LIKE parameter for LIKE queries
+     *
+     * @param mixed $param Parameter value
+     * @return string Quoted value with '%' for LIKE
+     */
+    private function handleLikeParameter(mixed $param): string
+    {
+        $quotedParam = $this->pdo->quote($param);
+        return "%" . trim($quotedParam, "'") . "%";
     }
 }

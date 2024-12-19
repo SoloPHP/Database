@@ -70,6 +70,10 @@ $user = $db->executeQuery("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchAs
 
 // Fetch single column value
 $name = $db->executeQuery("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->fetchObject('name');
+
+// SELECT with LIKE clause
+$searchTerm = '%john%';
+$users = $db->executeQuery("SELECT * FROM ?t WHERE name LIKE ?l", 'users', $searchTerm)->fetchAll();
 ```
 
 ## Query Placeholders
@@ -82,6 +86,7 @@ $name = $db->executeQuery("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->fetc
 - `?t` - Table name (with prefix)
 - `?p` - Raw parameter (unescaped)
 - `?d` - Date (expects DateTimeImmutable, formats according to database type)
+- `?l` - Like condition (for LIKE statements with wildcards)
 
 ## Database Support
 
