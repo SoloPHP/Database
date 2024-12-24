@@ -42,7 +42,7 @@ class Database
      * @throws Exception When query execution fails
      * @return self For method chaining
      */
-    public function executeQuery(string $sql, mixed ...$params): self
+    public function query(string $sql, mixed ...$params): self
     {
         try {
             $parsedSql = $this->queryBuilder->prepare($sql, ...$params);
