@@ -12,6 +12,7 @@ composer require solophp/database
 
 - Support for MySQL, PostgreSQL, SQLite, SQL Server, and other PDO-compatible databases
 - Safe query building with type-specific placeholders
+- Query preparation without execution
 - Optional table prefixing
 - Integration with PSR-3 compatible Solo Logger
 - Clean and flexible API with method chaining
@@ -49,31 +50,45 @@ $userData = [
     'age' => 25,
     'created_at' => new DateTimeImmutable()
 ];
-$db->executeQuery("INSERT INTO ?t SET ?A", 'users', $userData);
+$db->query("INSERT INTO ?t SET ?A", 'users', $userData);
 
 // SELECT with IN clause
 $ids = [1, 2, 3];
-$db->executeQuery("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids);
+$db->query("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids);
 $users = $db->fetchAll();
 
 // Fetch all results as array of objects
-$users = $db->executeQuery("SELECT * FROM ?t", 'users')->fetchAll();
+$users = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
 
 // Fetch all results with primary key as array key
-$users = $db->executeQuery("SELECT * FROM ?t", 'users')->fetchAll('id');
+$users = $db->query("SELECT * FROM ?t", 'users')->fetchAll('id');
 
 // Fetch single row as object
-$user = $db->executeQuery("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchObject();
+$user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchObject();
 
 // Fetch single row as associative array
-$user = $db->executeQuery("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchAssoc();
+$user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchAssoc();
 
 // Fetch single column value
-$name = $db->executeQuery("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->fetchObject('name');
+$name = $db->query("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->fetchObject('name');
 
 // SELECT with LIKE clause
 $searchTerm = '%john%';
-$users = $db->executeQuery("SELECT * FROM ?t WHERE name LIKE ?l", 'users', $searchTerm)->fetchAll();
+$users = $db->query("SELECT * FROM ?t WHERE name LIKE ?l", 'users', $searchTerm)->fetchAll();
+
+// Prepare a query without executing it
+$sql = $db->prepare("SELECT * FROM ?t WHERE user_id = ?i AND status = ?s", 
+    'orders',
+    15,
+    'pending'
+);
+// Result: SELECT * FROM prefix_orders WHERE user_id = 15 AND status = 'pending'
+
+// Useful for debugging or when you need to see the final query
+echo $sql;
+
+// Can still execute the prepared query later
+$db->query($sql)->fetchAll();
 ```
 
 ## Query Placeholders
