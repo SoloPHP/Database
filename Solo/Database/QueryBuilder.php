@@ -2,6 +2,7 @@
 
 namespace Solo\Database;
 
+use Solo\Database\Interfaces\QueryBuilderInterface;
 use Solo\Logger;
 use Exception;
 use PDO;
@@ -21,7 +22,7 @@ use DateTimeImmutable;
  * - ?d - date (DateTimeImmutable)
  * - ?l - LIKE parameter (adds '%' for LIKE queries)
  */
-readonly class QueryBuilder
+readonly class QueryBuilder implements QueryBuilderInterface
 {
     /**
      * Database date formats for different drivers
@@ -45,19 +46,13 @@ readonly class QueryBuilder
      * @param Logger|null $logger Optional logger instance for error logging
      */
     public function __construct(
-        private PDO $pdo,
-        private string $prefix = '',
+        private PDO     $pdo,
+        private string  $prefix = '',
         private ?Logger $logger = null
-    ) {}
+    )
+    {
+    }
 
-    /**
-     * Prepare SQL query with placeholders
-     *
-     * @param string $sql SQL query with placeholders
-     * @param mixed ...$params Parameters to replace placeholders
-     * @return string Built SQL query
-     * @throws Exception When placeholder count doesn't match parameters count
-     */
     public function prepare(string $sql, ...$params): string
     {
         $pattern = '/\?([sifaAtpdl])/';
@@ -120,8 +115,8 @@ readonly class QueryBuilder
      * Handle unknown placeholder type
      *
      * @param string $type Invalid placeholder type
-     * @throws Exception Always throws to indicate invalid type
      * @return never
+     * @throws Exception Always throws to indicate invalid type
      */
     private function handleUnknownType(string $type): never
     {

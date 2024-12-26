@@ -7,13 +7,14 @@ use PDOStatement;
 use PDOException;
 use Exception;
 use Solo\Database\Connection;
+use Solo\Database\Interfaces\DatabaseInterface;
 use Solo\Database\QueryBuilder;
 use stdClass;
 
 /**
  * Main database class for query execution
  */
-class Database
+final class Database implements DatabaseInterface
 {
     private PDO $pdo;
     private ?PDOStatement $stmt = null;
@@ -34,14 +35,6 @@ class Database
         );
     }
 
-    /**
-     * Execute SQL query
-     *
-     * @param string $sql SQL query with placeholders
-     * @param mixed ...$params Parameters to replace placeholders
-     * @throws Exception When query execution fails
-     * @return self For method chaining
-     */
     public function query(string $sql, mixed ...$params): self
     {
         try {
@@ -58,20 +51,11 @@ class Database
         return $this;
     }
 
-    /**
-     * Prepare SQL query with placeholders
-     */
     public function prepare(string $sql, mixed ...$params): string
     {
         return $this->queryBuilder->prepare($sql, ...$params);
     }
 
-    /**
-     * Get all results
-     *
-     * @param string $primaryKey Optional primary key for array keys
-     * @return array<int|string, stdClass> Query results as array of objects
-     */
     public function fetchAll(string $primaryKey = ''): array
     {
         $results = $this->stmt->fetchAll($this->pdo::FETCH_CLASS);
@@ -83,13 +67,6 @@ class Database
         return array_column($results, null, $primaryKey);
     }
 
-    /**
-     * Get single result as associative array
-     *
-     * @param string|null $column Optional specific column to fetch
-     * @return array<string, mixed>|string|int|float|bool|null Single row or column value
-     * @throws Exception When specified column not found
-     */
     public function fetchAssoc(?string $column = null): array|string|int|float|bool|null
     {
         $result = $this->stmt->fetch(PDO::FETCH_ASSOC);
@@ -111,13 +88,6 @@ class Database
         return $result[$column];
     }
 
-    /**
-     * Get single result
-     *
-     * @param string|null $column Optional specific column to fetch
-     * @throws Exception When specified column not found
-     * @return stdClass|string|int|float|bool|null Query result
-     */
     public function fetchObject(?string $column = null): stdClass|string|int|float|bool|null
     {
         if (!$column) {
@@ -138,19 +108,11 @@ class Database
         return $resultArray[$column];
     }
 
-    /**
-     * Get last inserted ID
-     *
-     * @return string|false Last inserted ID or false on failure
-     */
     public function lastInsertId(): string|false
     {
         return $this->pdo->lastInsertId();
     }
 
-    /**
-     * Get number of affected rows
-     */
     public function rowCount(): int
     {
         return $this->stmt->rowCount();
