@@ -243,7 +243,7 @@ readonly class QueryBuilder implements QueryBuilderInterface
      */
     private function handleLikeParameter(mixed $param): string
     {
-        $quotedParam = $this->pdo->quote($param);
-        return "%" . trim($quotedParam, "'") . "%";
+        $escapedParam = str_replace(['%', '_'], ['\%', '\_'], $param);
+        return $this->pdo->quote("%{$escapedParam}%");
     }
 }
