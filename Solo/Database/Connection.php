@@ -39,7 +39,7 @@ class Connection
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $e) {
             $this->logger?->error('Connection failed: ' . $e->getMessage());
-            throw new Exception('Connection to the database failed: ' . $e->getMessage());
+            throw new Exception('Connection to the database failed: ' . $e->getMessage(), (int)$e->getCode());
         }
     }
 

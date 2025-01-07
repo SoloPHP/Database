@@ -1,5 +1,8 @@
 # Solo Database
 
+[![Version](https://img.shields.io/badge/version-2.5.2-blue.svg)](https://github.com/solophp/database)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
 Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.
 
 ## Installation

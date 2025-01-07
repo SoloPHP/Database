@@ -46,7 +46,7 @@ final class Database implements DatabaseInterface
                 'sql' => $sql,
                 'params' => $params
             ]);
-            throw new Exception('Query failed: ' . $e->getMessage());
+            throw new Exception('Query failed: ' . $e->getMessage(), (int)$e->getCode());
         }
         return $this;
     }
