@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types = 1);
 
 namespace Solo\Database;
 
@@ -22,7 +22,7 @@ use DateTimeImmutable;
  * - ?d - date (DateTimeImmutable)
  * - ?l - LIKE parameter (adds '%' for LIKE queries)
  */
-readonly class QueryBuilder implements QueryBuilderInterface
+final class QueryBuilder implements QueryBuilderInterface
 {
     /**
      * Database date formats for different drivers
@@ -92,10 +92,10 @@ readonly class QueryBuilder implements QueryBuilderInterface
      *                     d - date (DateTimeImmutable)
      *                     l - LIKE parameter (adds '%' for LIKE queries)
      * @param mixed $param Parameter value
-     * @return string Replaced value
+     * @return mixed Replaced value
      * @throws Exception When parameter type is invalid
      */
-    private function replaceParameter(string $type, mixed $param): string
+    private function replaceParameter(string $type, mixed $param): mixed
     {
         return match ($type) {
             's' => $this->pdo->quote($param),
@@ -232,7 +232,9 @@ readonly class QueryBuilder implements QueryBuilderInterface
             throw new Exception($message);
         }
 
-        return $param->format($this->getDateFormatForDatabase());
+        return  $this->pdo->quote(
+            $param->format($this->getDateFormatForDatabase())
+        );
     }
 
     /**

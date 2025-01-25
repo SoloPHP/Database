@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Solo\Database;
 
@@ -7,7 +7,7 @@ use PDO;
 /**
  * Database configuration class
  */
-class Config
+final class Config
 {
     /** @var array<string, string> DSN patterns for different database types */
     private const DSN_PATTERNS = [

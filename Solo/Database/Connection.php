@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Solo\Database;
 
@@ -10,7 +10,7 @@ use Exception;
 /**
  * Database connection class
  */
-class Connection
+final readonly class Connection
 {
     private PDO $pdo;
     private string $prefix;
