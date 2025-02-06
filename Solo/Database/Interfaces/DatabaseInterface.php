@@ -32,28 +32,23 @@ interface DatabaseInterface
     /**
      * Get all results
      *
-     * @param string $primaryKey Optional primary key for array keys
-     * @return array<int|string, stdClass> Query results as array of objects
+     * @return array Query results as associative array
      */
-    public function fetchAll(string $primaryKey = ''): array;
+    public function fetchAll(): array;
 
     /**
      * Get single result as associative array
      *
-     * @param string|null $column Optional specific column to fetch
-     * @return array<string, mixed>|string|int|float|bool|null Single row or column value
-     * @throws Exception When specified column not found
+     * @return array|null Single row or null if no result
      */
-    public function fetchAssoc(?string $column = null): array|string|int|float|bool|null;
+    public function fetch(): ?array;
 
     /**
-     * Get single result
+     * Get single result as object
      *
-     * @param string|null $column Optional specific column to fetch
-     * @throws Exception When specified column not found
-     * @return stdClass|string|int|float|bool|null Query result
+     * @return stdClass|null Query result or null if no result
      */
-    public function fetchObject(?string $column = null): stdClass|string|int|float|bool|null;
+    public function fetchObject(): ?stdClass;
 
     /**
      * Get last inserted ID
@@ -68,4 +63,19 @@ interface DatabaseInterface
      * @return int Number of affected rows
      */
     public function rowCount(): int;
+
+    /**
+     * Begin transaction
+     */
+    public function beginTransaction(): void;
+
+    /**
+     * Commit transaction
+     */
+    public function commit(): void;
+
+    /**
+     * Rollback transaction
+     */
+    public function rollBack(): void;
 }

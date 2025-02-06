@@ -2,7 +2,9 @@
 
 namespace Solo\Database\Interfaces;
 
-interface QueryBuilderInterface
+use Exception;
+
+interface QueryPreparerInterface
 {
     /**
      * Prepare an SQL query with placeholders replaced by actual values.

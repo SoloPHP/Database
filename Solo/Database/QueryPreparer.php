@@ -2,7 +2,7 @@
 
 namespace Solo\Database;
 
-use Solo\Database\Interfaces\QueryBuilderInterface;
+use Solo\Database\Interfaces\QueryPreparerInterface;
 use Solo\Logger;
 use Exception;
 use PDO;
@@ -18,11 +18,12 @@ use DateTimeImmutable;
  * - ?a - array (for IN clauses)
  * - ?A - associative array (for SET clauses)
  * - ?t - table name (with prefix)
- * - ?p - raw parameter
- * - ?d - date (DateTimeImmutable)
+ * - ?c - column name
  * - ?l - LIKE parameter (adds '%' for LIKE queries)
+ * - ?d - date (DateTimeImmutable)
+ * - ?r - raw parameter
  */
-final class QueryBuilder implements QueryBuilderInterface
+final class QueryPreparer implements QueryPreparerInterface
 {
     /**
      * Database date formats for different drivers
@@ -55,7 +56,7 @@ final class QueryBuilder implements QueryBuilderInterface
 
     public function prepare(string $sql, ...$params): string
     {
-        $pattern = '/\?([sifaAtpdl])/';
+        $pattern = '/\?([sifaAtcldr])/';
         $placeholderCount = preg_match_all($pattern, $sql);
 
         if ($placeholderCount !== count($params)) {
@@ -88,9 +89,10 @@ final class QueryBuilder implements QueryBuilderInterface
      *                     a - array (for IN clauses)
      *                     A - associative array (for SET clauses)
      *                     t - table name (with prefix)
-     *                     p - raw parameter
-     *                     d - date (DateTimeImmutable)
+     *                     c - column name
      *                     l - LIKE parameter (adds '%' for LIKE queries)
+     *                     d - date (DateTimeImmutable)
+     *                     r - raw parameter
      * @param mixed $param Parameter value
      * @return mixed Replaced value
      * @throws Exception When parameter type is invalid
@@ -104,9 +106,10 @@ final class QueryBuilder implements QueryBuilderInterface
             'a' => $this->handleArrayParameter($param),
             'A' => $this->handleAssociativeArrayParameter($param),
             't' => $this->handleTableParameter($param),
-            'p' => $param,
-            'd' => $this->handleDateParameter($param),
+            'c' => $this->handleColumnEscape($param),
             'l' => $this->handleLikeParameter($param),
+            'd' => $this->handleDateParameter($param),
+            'r' => $param,
             default => $this->handleUnknownType($type),
         };
     }
@@ -201,6 +204,28 @@ final class QueryBuilder implements QueryBuilderInterface
     private function handleTableParameter(string $param): string
     {
         return '`' . (!empty($this->prefix) ? $this->prefix . '_' . $param : $param) . '`';
+    }
+
+    /**
+     * Escapes a MySQL column name, ensuring it contains only valid characters.
+     *
+     * Allowed characters are letters, digits, underscores, and backticks.
+     *
+     * @param string $column The column name.
+     * @return string The escaped column name.
+     * @throws Exception If the column name contains invalid characters.
+     */
+    private function handleColumnEscape(string $column): string
+    {
+        if (!preg_match('/^[a-zA-Z0-9_`]+$/', $column)) {
+            $message = sprintf("Invalid column name for ?c placeholder: %s", $column);
+            $this->logger?->error($message);
+            throw new Exception($message);
+        }
+
+        $escaped = str_replace('`', '``', $column);
+
+        return "`{$escaped}`";
     }
 
     /**

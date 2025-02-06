@@ -1,6 +1,6 @@
 # Solo Database
 
-[![Version](https://img.shields.io/badge/version-2.5.3-blue.svg)](https://github.com/solophp/database)
+[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](https://github.com/solophp/database)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.
@@ -18,6 +18,7 @@ composer require solophp/database
 - Query preparation without execution
 - Optional table prefixing
 - Integration with PSR-3 compatible Solo Logger
+- Transaction support
 - Clean and flexible API with method chaining
 
 ## Requirements
@@ -60,24 +61,31 @@ $ids = [1, 2, 3];
 $db->query("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids);
 $users = $db->fetchAll();
 
-// Fetch all results as array of objects
+// Fetch all results as array of arrays
 $users = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
 
-// Fetch all results with primary key as array key
-$users = $db->query("SELECT * FROM ?t", 'users')->fetchAll('id');
+// Fetch single row as array
+$user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetch();
 
 // Fetch single row as object
 $user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchObject();
 
-// Fetch single row as associative array
-$user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetchAssoc();
+// SELECT with dynamic column name
+$column = 'email';
+$users = $db->query("SELECT ?c FROM ?t WHERE id = ?i", $column, 'users', 1)->fetch();
 
-// Fetch single column value
-$name = $db->query("SELECT name FROM ?t WHERE id = ?i", 'users', 1)->fetchObject('name');
+// Transaction example
+try {
+    $db->beginTransaction();
 
-// SELECT with LIKE clause
-$searchTerm = 'john';
-$users = $db->query("SELECT * FROM ?t WHERE name LIKE ?l", 'users', $searchTerm)->fetchAll();
+    $db->query("INSERT INTO ?t SET ?A", 'orders', $orderData);
+    $db->query("UPDATE ?t SET balance = balance - ?f WHERE id = ?i", 'accounts', $amount, $userId);
+    
+    $db->commit();
+} catch (Exception $e) {
+    $db->rollBack();
+    throw $e;
+}
 
 // Prepare a query without executing it
 $sql = $db->prepare("SELECT * FROM ?t WHERE user_id = ?i AND status = ?s", 
@@ -86,12 +94,6 @@ $sql = $db->prepare("SELECT * FROM ?t WHERE user_id = ?i AND status = ?s",
     'pending'
 );
 // Result: SELECT * FROM prefix_orders WHERE user_id = 15 AND status = 'pending'
-
-// Useful for debugging or when you need to see the final query
-echo $sql;
-
-// Can still execute the prepared query later
-$db->query($sql)->fetchAll();
 ```
 
 ## Query Placeholders
@@ -102,6 +104,7 @@ $db->query($sql)->fetchAll();
 - `?a` - Array (for IN statements)
 - `?A` - Associative Array (for SET statements)
 - `?t` - Table name (with prefix)
+- `?c` - Column name (safely quoted)
 - `?p` - Raw parameter (unescaped)
 - `?d` - Date (expects DateTimeImmutable, formats according to database type)
 - `?l` - Like condition
@@ -121,9 +124,9 @@ The library automatically handles date formatting for different database types:
 
 The library provides type-safe return values:
 
-- `fetchAll()`: Returns `array<int|string, stdClass>`
-- `fetchAssoc()`: Returns `array<string, mixed>|string|int|float|bool|null`
-- `fetchObject()`: Returns `stdClass|string|int|float|bool|null`
+- `fetchAll()`: Returns `array<string, mixed>[]`
+- `fetch()`: Returns `array<string, mixed>|null`
+- `fetchObject()`: Returns `stdClass|null`
 - `rowCount()`: Returns `int`
 - `lastInsertId()`: Returns `string|false`
 
@@ -134,3 +137,4 @@ All database operations are wrapped in try-catch blocks and will throw exception
 ## License
 
 MIT License. See LICENSE file for details.
+```
