@@ -5,9 +5,6 @@ namespace Solo\Database\Interfaces;
 use Exception;
 use stdClass;
 
-/**
- * Database interface
- */
 interface DatabaseInterface
 {
     /**
@@ -32,23 +29,18 @@ interface DatabaseInterface
     /**
      * Get all results
      *
-     * @return array Query results as associative array
+     * @param int|null $fetchMode Optional fetch mode (PDO::FETCH_ASSOC or PDO::FETCH_OBJ)
+     * @return array<int|string, array|stdClass> Query results as array of arrays or objects
      */
-    public function fetchAll(): array;
+    public function fetchAll(?int $fetchMode = null): array;
 
     /**
-     * Get single result as associative array
+     * Get single result
      *
-     * @return array|null Single row or null if no result
+     * @param int|null $fetchMode Optional fetch mode (PDO::FETCH_ASSOC or PDO::FETCH_OBJ)
+     * @return array|stdClass|null Single row as array or object, or null if no result
      */
-    public function fetch(): ?array;
-
-    /**
-     * Get single result as object
-     *
-     * @return stdClass|null Query result or null if no result
-     */
-    public function fetchObject(): ?stdClass;
+    public function fetch(?int $fetchMode = null): array|stdClass|null;
 
     /**
      * Get last inserted ID

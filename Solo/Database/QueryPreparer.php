@@ -1,4 +1,4 @@
-<?php declare(strict_types = 1);
+<?php declare(strict_types=1);
 
 namespace Solo\Database;
 
@@ -8,28 +8,8 @@ use Exception;
 use PDO;
 use DateTimeImmutable;
 
-/**
- * SQL query builder class for generating safe SQL queries with placeholders.
- *
- * Supports various types of placeholders:
- * - ?s - string (quoted)
- * - ?i - integer
- * - ?f - float
- * - ?a - array (for IN clauses)
- * - ?A - associative array (for SET clauses)
- * - ?t - table name (with prefix)
- * - ?c - column name
- * - ?l - LIKE parameter (adds '%' for LIKE queries)
- * - ?d - date (DateTimeImmutable)
- * - ?r - raw parameter
- */
 final class QueryPreparer implements QueryPreparerInterface
 {
-    /**
-     * Database date formats for different drivers
-     *
-     * Keys are PDO driver names, values are date format patterns
-     */
     private const DATE_FORMATS = [
         'pgsql' => 'Y-m-d H:i:s.u P',
         'mysql' => 'Y-m-d H:i:s',
@@ -39,13 +19,6 @@ final class QueryPreparer implements QueryPreparerInterface
         'cubrid' => 'Y-m-d H:i:s',
     ];
 
-    /**
-     * Initialize query builder
-     *
-     * @param PDO $pdo PDO instance for database connection
-     * @param string $prefix Optional table prefix for all queries
-     * @param Logger|null $logger Optional logger instance for error logging
-     */
     public function __construct(
         private PDO     $pdo,
         private string  $prefix = '',
@@ -102,7 +75,7 @@ final class QueryPreparer implements QueryPreparerInterface
         return match ($type) {
             's' => $this->pdo->quote($param),
             'i' => (int)$param,
-            'f' => is_float($param) ? $param : floatval(str_replace(',', '.', $param)),
+            'f' => is_float($param) ? $param : floatval(str_replace(',', '.', (string)$param)),
             'a' => $this->handleArrayParameter($param),
             'A' => $this->handleAssociativeArrayParameter($param),
             't' => $this->handleTableParameter($param),
@@ -114,13 +87,6 @@ final class QueryPreparer implements QueryPreparerInterface
         };
     }
 
-    /**
-     * Handle unknown placeholder type
-     *
-     * @param string $type Invalid placeholder type
-     * @return never
-     * @throws Exception Always throws to indicate invalid type
-     */
     private function handleUnknownType(string $type): never
     {
         $message = sprintf("Unknown placeholder type: ?%s", $type);
@@ -128,13 +94,6 @@ final class QueryPreparer implements QueryPreparerInterface
         throw new Exception($message);
     }
 
-    /**
-     * Handle array parameter for IN clauses
-     *
-     * @param mixed $param Expected to be array
-     * @return string Comma-separated quoted values
-     * @throws Exception When parameter is not array
-     */
     private function handleArrayParameter(mixed $param): string
     {
         if (!is_array($param)) {
@@ -148,13 +107,6 @@ final class QueryPreparer implements QueryPreparerInterface
         return implode(', ', array_map([$this->pdo, 'quote'], $param));
     }
 
-    /**
-     * Handle associative array parameter for SET clauses
-     *
-     * @param mixed $param Expected to be associative array
-     * @return string SET clause with key-value pairs
-     * @throws Exception When parameter is not associative array
-     */
     private function handleAssociativeArrayParameter(mixed $param): string
     {
         if (!is_array($param) || $param === array_values($param)) {
@@ -173,15 +125,12 @@ final class QueryPreparer implements QueryPreparerInterface
         return implode(', ', $sets);
     }
 
-    /**
-     * Format key-value pair for SET clause
-     *
-     * @param string $key Column name
-     * @param mixed $value Column value
-     * @return string Formatted key-value pair
-     */
     private function formatKeyValuePair(string $key, mixed $value): string
     {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $key)) {
+            throw new Exception("Invalid column name in SET clause: {$key}");
+        }
+
         $escapedKey = "`" . str_replace("`", "``", $key) . "`";
 
         $escapedValue = match (true) {
@@ -195,26 +144,15 @@ final class QueryPreparer implements QueryPreparerInterface
         return "$escapedKey = $escapedValue";
     }
 
-    /**
-     * Handle table name with prefix
-     *
-     * @param string $param Table name
-     * @return string Prefixed and escaped table name
-     */
     private function handleTableParameter(string $param): string
     {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $param)) {
+            throw new Exception("Invalid table name: {$param}");
+        }
+
         return '`' . (!empty($this->prefix) ? $this->prefix . '_' . $param : $param) . '`';
     }
 
-    /**
-     * Escapes a MySQL column name, ensuring it contains only valid characters.
-     *
-     * Allowed characters are letters, digits, underscores, and backticks.
-     *
-     * @param string $column The column name.
-     * @return string The escaped column name.
-     * @throws Exception If the column name contains invalid characters.
-     */
     private function handleColumnEscape(string $column): string
     {
         if (!preg_match('/^[a-zA-Z0-9_`]+$/', $column)) {
@@ -228,24 +166,12 @@ final class QueryPreparer implements QueryPreparerInterface
         return "`{$escaped}`";
     }
 
-    /**
-     * Get date format for current database type
-     *
-     * @return string Date format pattern according to current PDO driver
-     */
     private function getDateFormatForDatabase(): string
     {
         $dbType = strtolower($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
         return self::DATE_FORMATS[$dbType] ?? self::DATE_FORMATS['mysql'];
     }
 
-    /**
-     * Handle date parameter formatting
-     *
-     * @param mixed $param Expected to be DateTimeImmutable
-     * @return string Formatted date string according to database format
-     * @throws Exception When parameter is not DateTimeImmutable
-     */
     private function handleDateParameter(mixed $param): string
     {
         if (!$param instanceof DateTimeImmutable) {
@@ -257,20 +183,14 @@ final class QueryPreparer implements QueryPreparerInterface
             throw new Exception($message);
         }
 
-        return  $this->pdo->quote(
+        return $this->pdo->quote(
             $param->format($this->getDateFormatForDatabase())
         );
     }
 
-    /**
-     * Handle LIKE parameter for LIKE queries
-     *
-     * @param mixed $param Parameter value
-     * @return string Quoted value with '%' for LIKE
-     */
     private function handleLikeParameter(mixed $param): string
     {
-        $escapedParam = str_replace(['%', '_'], ['\%', '\_'], $param);
+        $escapedParam = str_replace(['%', '_'], ['\%', '\_'], (string)$param);
         return $this->pdo->quote("%{$escapedParam}%");
     }
 }

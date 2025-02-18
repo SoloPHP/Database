@@ -17,11 +17,13 @@ final class Database implements DatabaseInterface
     private ?PDOStatement $stmt = null;
     private QueryPreparer $queryPreparer;
     private ?Logger $logger;
+    private int $defaultFetchMode;
 
     public function __construct(Connection $connection)
     {
         $this->pdo = $connection->getPdo();
         $this->logger = $connection->getLogger();
+        $this->defaultFetchMode = $connection->getFetchMode();
         $this->queryPreparer = new QueryPreparer(
             $this->pdo,
             $connection->getPrefix(),
@@ -50,19 +52,16 @@ final class Database implements DatabaseInterface
         return $this->queryPreparer->prepare($sql, ...$params);
     }
 
-    public function fetchAll(): array
+    public function fetchAll(?int $fetchMode = null): array
     {
-        return $this->stmt->fetchAll($this->pdo::FETCH_ASSOC) ?: [];
+        $mode = $fetchMode ?? $this->defaultFetchMode;
+        return $this->stmt->fetchAll($mode) ?: [];
     }
 
-    public function fetch(): ?array
+    public function fetch(?int $fetchMode = null): array|stdClass|null
     {
-        return $this->stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    public function fetchObject(): ?stdClass
-    {
-        return $this->stmt->fetchObject();
+        $mode = $fetchMode ?? $this->defaultFetchMode;
+        return $this->stmt->fetch($mode) ?: null;
     }
 
     public function lastInsertId(): string|false

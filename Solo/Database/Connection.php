@@ -7,18 +7,14 @@ use PDOException;
 use Solo\Logger;
 use Exception;
 
-/**
- * Database connection class
- */
 final readonly class Connection
 {
     private PDO $pdo;
     private string $prefix;
     private ?Logger $logger;
+    private int $fetchMode;
 
     /**
-     * Initialize database connection
-     *
      * @param Config $config Database configuration
      * @param Logger|null $logger Optional logger instance
      * @throws Exception When connection fails
@@ -27,6 +23,7 @@ final readonly class Connection
     {
         $this->prefix = $config->getPrefix();
         $this->logger = $logger;
+        $this->fetchMode = $config->getFetchMode();
 
         try {
             $credentials = $config->getCredentials();
@@ -43,27 +40,23 @@ final readonly class Connection
         }
     }
 
-    /**
-     * Get PDO instance
-     */
     public function getPdo(): PDO
     {
         return $this->pdo;
     }
 
-    /**
-     * Get logger instance
-     */
     public function getLogger(): ?Logger
     {
         return $this->logger;
     }
 
-    /**
-     * Get table prefix
-     */
     public function getPrefix(): string
     {
         return $this->prefix;
+    }
+
+    public function getFetchMode(): int
+    {
+        return $this->fetchMode;
     }
 }
