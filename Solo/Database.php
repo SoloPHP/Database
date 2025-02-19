@@ -64,6 +64,11 @@ final class Database implements DatabaseInterface
         return $this->stmt->fetch($mode) ?: null;
     }
 
+    public function fetchColumn(int $columnIndex = 0): mixed
+    {
+        return $this->stmt->fetchColumn($columnIndex);
+    }
+
     public function lastInsertId(): string|false
     {
         return $this->pdo->lastInsertId();

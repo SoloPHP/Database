@@ -43,6 +43,14 @@ interface DatabaseInterface
     public function fetch(?int $fetchMode = null): array|stdClass|null;
 
     /**
+     * Retrieves a single column from the next row of the result set.
+     *
+     * @param int $columnIndex The 0-based index of the column to retrieve.
+     * @return mixed Returns the value of the column, or false if there are no more rows.
+     */
+    public function fetchColumn(int $columnIndex = 0): mixed;
+
+    /**
      * Get last inserted ID
      *
      * @return string|false Last inserted ID or false on failure

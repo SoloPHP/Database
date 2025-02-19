@@ -63,7 +63,7 @@ $db->query("INSERT INTO ?t SET ?A", 'users', $userData);
 // Using default fetch mode
 $users = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
 
-// Override fetch mode for specific query
+// Override fetch mode for a specific query
 $user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)
     ->fetch(PDO::FETCH_ASSOC);
 
@@ -101,6 +101,22 @@ $sql = $db->prepare(
     'pending'
 );
 // Result: SELECT * FROM prefix_orders WHERE user_id = 15 AND status = 'pending'
+
+// Single Column Fetch
+If you only need a single column value from the next row in your query result, you can use the fetchColumn method. It returns the value of the specified column or false if there are no more rows.
+
+// Fetch the first column (index 0) from the next row
+$email = $db->query("SELECT email FROM ?t WHERE id = ?i", 'users', 1)->fetchColumn();
+if ($email !== false) {
+    echo "User email: $email";
+} else {
+    echo "No user found!";
+}
+
+// If your query returns multiple columns, specify the column index:
+$db->query("SELECT id, email FROM ?t WHERE id = ?i", 'users', 2);
+$id = $db->fetchColumn(0);    // Gets the 'id'
+$email = $db->fetchColumn(1); // Gets the 'email'
 ```
 
 ## Query Placeholders
@@ -128,6 +144,7 @@ The library automatically handles date formatting for different database types:
 The library provides type-safe return values:
 - `fetchAll(?int $fetchMode = null)`: Returns `array<int|string, array|stdClass>`
 - `fetch(?int $fetchMode = null)`: Returns `array|stdClass|null`
+- `fetchColumn(int $columnIndex = 0)`: Returns `mixed` (the value of the column or false if no more rows)
 - `rowCount()`: Returns `int`
 - `lastInsertId()`: Returns `string|false`
 
