@@ -81,7 +81,7 @@ $userAssoc = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)
 
 // 5) SELECT with IN clause
 $ids = [1, 2, 3];
-$result = $db->query("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids)
+$result = $db->query("SELECT * FROM ?t WHERE id IN ?a", 'users', $ids)
     ->fetchAll();
 
 // 6) SELECT with a dynamic column name

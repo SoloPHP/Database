@@ -105,7 +105,9 @@ final class QueryPreparer implements QueryPreparerInterface
             $this->logger?->error($message);
             throw new Exception($message);
         }
-        return implode(', ', array_map([$this->pdo, 'quote'], $param));
+
+        $quotedItems = array_map([$this->pdo, 'quote'], $param);
+        return '(' . implode(', ', $quotedItems) . ')';
     }
 
     private function handleAssociativeArrayParameter(mixed $param): string
