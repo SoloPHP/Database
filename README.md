@@ -1,5 +1,5 @@
 # Solo Database
-[![Version](https://img.shields.io/badge/version-2.7.0-blue.svg)](https://github.com/solophp/database)
+[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](https://github.com/solophp/database)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.
@@ -50,7 +50,11 @@ $db = new Database($connection);
 
 ### Query Examples
 ```php
-// INSERT with associative array
+// 1) Basic SELECT
+$users = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
+// By default, rows are fetched with the configured fetch mode (e.g., PDO::FETCH_OBJ)
+
+// 2) INSERT with an associative array
 $userData = [
     'name' => 'John Doe',
     'email' => 'john@example.com',
@@ -59,29 +63,45 @@ $userData = [
 ];
 $db->query("INSERT INTO ?t SET ?A", 'users', $userData);
 
-// SELECT with different fetch modes
+// 3) INSERT multiple rows (bulk INSERT)
+$data = [
+    ['John', 30],
+    ['Alice', 25],
+];
+$db->query("INSERT INTO ?t (name, age) VALUES ?M", 'users', $data);
+// Generates: INSERT INTO `prefix_users` (name, age) VALUES ('John', 30), ('Alice', 25)
+
+// 4) SELECT with different fetch modes
 // Using default fetch mode
-$users = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
+$usersDefault = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
 
 // Override fetch mode for a specific query
-$user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)
+$userAssoc = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)
     ->fetch(PDO::FETCH_ASSOC);
 
-// SELECT with IN clause
+// 5) SELECT with IN clause
 $ids = [1, 2, 3];
 $result = $db->query("SELECT * FROM ?t WHERE id IN (?a)", 'users', $ids)
     ->fetchAll();
 
-// SELECT with dynamic column name
+// 6) SELECT with a dynamic column name
 $column = 'email';
-$user = $db->query("SELECT ?c FROM ?t WHERE id = ?i", $column, 'users', 1)
+$userEmail = $db->query("SELECT ?c FROM ?t WHERE id = ?i", $column, 'users', 1)
     ->fetch();
 
-// Transaction example
+// 7) Transactions example
 try {
     $db->beginTransaction();
+    
+    // Insert
+    $orderData = ['product' => 'Laptop', 'quantity' => 1, 'user_id' => 1];
     $db->query("INSERT INTO ?t SET ?A", 'orders', $orderData);
-    $db->query("UPDATE ?t SET balance = balance - ?f WHERE id = ?i", 
+    
+    // Update
+    $amount = 799.99;
+    $userId = 1;
+    $db->query(
+        "UPDATE ?t SET balance = balance - ?f WHERE id = ?i", 
         'accounts', 
         $amount, 
         $userId
@@ -93,19 +113,18 @@ try {
     throw $e;
 }
 
-// Prepare a query without executing it
+// 8) Prepare a query without executing it
 $sql = $db->prepare(
     "SELECT * FROM ?t WHERE user_id = ?i AND status = ?s", 
     'orders',
     15,
     'pending'
 );
-// Result: SELECT * FROM prefix_orders WHERE user_id = 15 AND status = 'pending'
+// Returns a prepared SQL string, e.g.:
+// SELECT * FROM prefix_orders WHERE user_id = 15 AND status = 'pending'
 
-// Single Column Fetch
-If you only need a single column value from the next row in your query result, you can use the fetchColumn method. It returns the value of the specified column or false if there are no more rows.
-
-// Fetch the first column (index 0) from the next row
+// 9) Single Column Fetch
+// Fetch the first column from the next row in the result set
 $email = $db->query("SELECT email FROM ?t WHERE id = ?i", 'users', 1)->fetchColumn();
 if ($email !== false) {
     echo "User email: $email";
@@ -115,8 +134,8 @@ if ($email !== false) {
 
 // If your query returns multiple columns, specify the column index:
 $db->query("SELECT id, email FROM ?t WHERE id = ?i", 'users', 2);
-$id = $db->fetchColumn(0);    // Gets the 'id'
-$email = $db->fetchColumn(1); // Gets the 'email'
+$id = $db->fetchColumn(0);    // 'id' column
+$email = $db->fetchColumn(1); // 'email' column
 ```
 
 ## Query Placeholders
@@ -127,9 +146,10 @@ $email = $db->fetchColumn(1); // Gets the 'email'
 - `?A` - Associative Array (for SET statements)
 - `?t` - Table name (with prefix)
 - `?c` - Column name (safely quoted)
-- `?r` - Raw parameter (unescaped)
 - `?d` - Date (expects DateTimeImmutable, formats according to database type)
 - `?l` - Like condition (adds % wildcards)
+- `?M` - Array of arrays (for multi-row INSERT queries)
+- `?r` - Raw parameter (unescaped)
 
 ## Database Support
 The library automatically handles date formatting for different database types:

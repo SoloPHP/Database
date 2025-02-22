@@ -29,7 +29,7 @@ final class QueryPreparer implements QueryPreparerInterface
 
     public function prepare(string $sql, ...$params): string
     {
-        $pattern = '/\?([sifaAtcldr])/';
+        $pattern = '/\?([sifaAtcldMr])/';
         $placeholderCount = preg_match_all($pattern, $sql);
 
         if ($placeholderCount !== count($params)) {
@@ -82,6 +82,7 @@ final class QueryPreparer implements QueryPreparerInterface
             'c' => $this->handleColumnEscape($param),
             'l' => $this->handleLikeParameter($param),
             'd' => $this->handleDateParameter($param),
+            'M' => $this->handleMultiRowParameter($param),
             'r' => $param,
             default => $this->handleUnknownType($type),
         };
@@ -166,10 +167,10 @@ final class QueryPreparer implements QueryPreparerInterface
         return "`{$escaped}`";
     }
 
-    private function getDateFormatForDatabase(): string
+    private function handleLikeParameter(mixed $param): string
     {
-        $dbType = strtolower($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
-        return self::DATE_FORMATS[$dbType] ?? self::DATE_FORMATS['mysql'];
+        $escapedParam = str_replace(['%', '_'], ['\%', '\_'], (string)$param);
+        return $this->pdo->quote("%{$escapedParam}%");
     }
 
     private function handleDateParameter(mixed $param): string
@@ -188,9 +189,37 @@ final class QueryPreparer implements QueryPreparerInterface
         );
     }
 
-    private function handleLikeParameter(mixed $param): string
+    private function getDateFormatForDatabase(): string
     {
-        $escapedParam = str_replace(['%', '_'], ['\%', '\_'], (string)$param);
-        return $this->pdo->quote("%{$escapedParam}%");
+        $dbType = strtolower($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+        return self::DATE_FORMATS[$dbType] ?? self::DATE_FORMATS['mysql'];
+    }
+
+    private function handleMultiRowParameter(mixed $param): string
+    {
+        if (!is_array($param)) {
+            $message = sprintf(
+                "Expected array of arrays for ?M placeholder, %s given",
+                gettype($param)
+            );
+            $this->logger?->error($message);
+            throw new Exception($message);
+        }
+
+        $rows = [];
+        foreach ($param as $row) {
+            if (!is_array($row)) {
+                $message = sprintf(
+                    "Each element in ?M placeholder must be an array, %s given",
+                    gettype($row)
+                );
+                $this->logger?->error($message);
+                throw new Exception($message);
+            }
+            $quotedFields = array_map([$this->pdo, 'quote'], $row);
+            $rows[] = '(' . implode(', ', $quotedFields) . ')';
+        }
+
+        return implode(', ', $rows);
     }
 }
