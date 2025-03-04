@@ -177,9 +177,13 @@ final class QueryPreparer implements QueryPreparerInterface
 
     private function handleDateParameter(mixed $param): string
     {
+        if ($param === null) {
+            return 'NULL';
+        }
+
         if (!$param instanceof DateTimeImmutable) {
             $message = sprintf(
-                "Expected DateTimeImmutable for ?d placeholder, %s given",
+                "Expected DateTimeImmutable or null for ?d placeholder, %s given",
                 gettype($param)
             );
             $this->logger?->error($message);

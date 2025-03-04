@@ -1,5 +1,5 @@
 # Solo Database
-[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](https://github.com/solophp/database)
+[![Version](https://img.shields.io/badge/version-2.8.1-blue.svg)](https://github.com/solophp/database)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.
@@ -12,6 +12,7 @@ composer require solophp/database
 ## Features
 - Support for MySQL, PostgreSQL, SQLite, SQL Server, and other PDO-compatible databases
 - Safe query building with type-specific placeholders
+- Flexible null value support, including for date parameters
 - Configurable fetch modes (arrays or objects)
 - Query preparation without execution
 - Optional table prefixing
@@ -71,7 +72,16 @@ $data = [
 $db->query("INSERT INTO ?t (name, age) VALUES ?M", 'users', $data);
 // Generates: INSERT INTO `prefix_users` (name, age) VALUES ('John', 30), ('Alice', 25)
 
-// 4) SELECT with different fetch modes
+// 4) Inserting with optional date fields
+$userData = [
+    'name' => 'John Doe',
+    'created_at' => new DateTimeImmutable(),  // Specific date
+    'updated_at' => null,                     // Null is now supported
+    'last_login' => null
+];
+$db->query("INSERT INTO ?t SET ?A", 'users', $userData);
+
+// 5) SELECT with different fetch modes
 // Using default fetch mode
 $usersDefault = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
 
@@ -79,17 +89,17 @@ $usersDefault = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
 $userAssoc = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)
     ->fetch(PDO::FETCH_ASSOC);
 
-// 5) SELECT with IN clause
+// 6) SELECT with IN clause
 $ids = [1, 2, 3];
 $result = $db->query("SELECT * FROM ?t WHERE id IN ?a", 'users', $ids)
     ->fetchAll();
 
-// 6) SELECT with a dynamic column name
+// 7) SELECT with a dynamic column name
 $column = 'email';
 $userEmail = $db->query("SELECT ?c FROM ?t WHERE id = ?i", $column, 'users', 1)
     ->fetch();
 
-// 7) Transactions example
+// 8) Transactions example
 try {
     $db->beginTransaction();
     
@@ -113,7 +123,7 @@ try {
     throw $e;
 }
 
-// 8) Prepare a query without executing it
+// 9) Prepare a query without executing it
 $sql = $db->prepare(
     "SELECT * FROM ?t WHERE user_id = ?i AND status = ?s", 
     'orders',
@@ -123,7 +133,7 @@ $sql = $db->prepare(
 // Returns a prepared SQL string, e.g.:
 // SELECT * FROM prefix_orders WHERE user_id = 15 AND status = 'pending'
 
-// 9) Single Column Fetch
+// 10) Single Column Fetch
 // Fetch the first column from the next row in the result set
 $email = $db->query("SELECT email FROM ?t WHERE id = ?i", 'users', 1)->fetchColumn();
 if ($email !== false) {
@@ -146,7 +156,7 @@ $email = $db->fetchColumn(1); // 'email' column
 - `?A` - Associative Array (for SET statements)
 - `?t` - Table name (with prefix)
 - `?c` - Column name (safely quoted)
-- `?d` - Date (expects DateTimeImmutable, formats according to database type)
+- `?d` - Date (expects DateTimeImmutable or null, formats according to database type)
 - `?l` - Like condition (adds % wildcards)
 - `?M` - Array of arrays (for multi-row INSERT queries)
 - `?r` - Raw parameter (unescaped)
@@ -169,7 +179,9 @@ The library provides type-safe return values:
 - `lastInsertId()`: Returns `string|false`
 
 ## Error Handling
-All database operations are wrapped in try-catch blocks and will throw exceptions with detailed error messages when queries fail. When a logger is configured, all errors are automatically logged with relevant context information.
+- All database operations are wrapped in try-catch blocks
+- Throws exceptions with detailed error messages
+- Automatically logs errors when a logger is configured
 
 ## License
 MIT License. See LICENSE file for details.
