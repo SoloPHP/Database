@@ -131,7 +131,7 @@ final class QueryPreparer implements QueryPreparerInterface
 
     private function formatKeyValuePair(string $key, mixed $value): string
     {
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $key)) {
+        if (!preg_match('/^[a-zA-Z0-9._]+$/', $key)) {
             throw new Exception("Invalid column name in SET clause: {$key}");
         }
 
