@@ -135,7 +135,7 @@ final class QueryPreparer implements QueryPreparerInterface
             throw new Exception("Invalid column name in SET clause: {$key}");
         }
 
-        $escapedKey = "`" . str_replace("`", "``", $key) . "`";
+        $escapedKey = $this->escapeQualifiedName($key);
 
         if ($value instanceof RawExpression) {
             $escapedValue = (string)$value;
@@ -150,6 +150,21 @@ final class QueryPreparer implements QueryPreparerInterface
         }
 
         return "$escapedKey = $escapedValue";
+    }
+
+    private function escapeQualifiedName(string $name): string
+    {
+        if (!str_contains($name, '.')) {
+            return '`' . str_replace('`', '``', $name) . '`';
+        }
+
+        $parts = explode('.', $name);
+
+        $escaped = array_map(function($part) {
+            return '`' . str_replace('`', '``', $part) . '`';
+        }, $parts);
+
+        return implode('.', $escaped);
     }
 
     private function handleTableParameter(string $param): string
