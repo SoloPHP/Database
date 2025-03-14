@@ -3,6 +3,7 @@
 namespace Solo\Database;
 
 use Solo\Database\Interfaces\QueryPreparerInterface;
+use Solo\Database\Expressions\RawExpression;
 use Solo\Logger;
 use Exception;
 use PDO;
@@ -136,13 +137,17 @@ final class QueryPreparer implements QueryPreparerInterface
 
         $escapedKey = "`" . str_replace("`", "``", $key) . "`";
 
-        $escapedValue = match (true) {
-            is_null($value) => 'NULL',
-            is_int($value), is_float($value) => $value,
-            is_bool($value) => (int)$value,
-            ($value instanceof DateTimeImmutable) => $this->pdo->quote($value->format($this->getDateFormatForDatabase())),
-            default => $this->pdo->quote($value),
-        };
+        if ($value instanceof RawExpression) {
+            $escapedValue = (string)$value;
+        } else {
+            $escapedValue = match (true) {
+                is_null($value) => 'NULL',
+                is_int($value) || is_float($value) => (string)$value,
+                is_bool($value) => (int)$value,
+                ($value instanceof DateTimeImmutable) => $this->pdo->quote($value->format($this->getDateFormatForDatabase())),
+                default => $this->pdo->quote($value),
+            };
+        }
 
         return "$escapedKey = $escapedValue";
     }

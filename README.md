@@ -1,5 +1,5 @@
 # Solo Database
-[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](https://github.com/solophp/database)
+[![Version](https://img.shields.io/badge/version-2.9.0-blue.svg)](https://github.com/solophp/database)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.
@@ -50,6 +50,7 @@ $db = new Database($connection);
 ```
 
 ### Query Examples
+
 ```php
 // 1) Basic SELECT
 $users = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
@@ -146,6 +147,26 @@ if ($email !== false) {
 $db->query("SELECT id, email FROM ?t WHERE id = ?i", 'users', 2);
 $id = $db->fetchColumn(0);    // 'id' column
 $email = $db->fetchColumn(1); // 'email' column
+
+// 11) Using Raw Expressions 
+//Sometimes you need to insert raw SQL into your query—e.g., to call SQL functions or operators that shouldn’t be quoted as a string.
+
+use Solo\Database\Expressions\RawExpression;
+
+// Example: updating a column with a CONCAT expression
+$db->query("
+    UPDATE ?t 
+    SET ?A
+    WHERE id = ?i
+", 
+'orders', 
+[
+    'number' => new RawExpression("CONCAT(RIGHT(phone, 4), '-', id)")
+],
+42
+);
+
+//This ensures that CONCAT(RIGHT(phone, 4), '-', id) is injected as is, without quotes.
 ```
 
 ## Query Placeholders
