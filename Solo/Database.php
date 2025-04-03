@@ -94,6 +94,34 @@ final class Database implements DatabaseInterface
         $this->pdo->rollBack();
     }
 
+    public function inTransaction(): bool
+    {
+        return $this->pdo->inTransaction();
+    }
+
+    public function withTransaction(callable $callback): mixed
+    {
+        try {
+            $this->beginTransaction();
+
+            $result = $callback();
+
+            $this->commit();
+
+            return $result;
+        } catch (\Throwable $e) {
+            if ($this->inTransaction()) {
+                $this->rollBack();
+            }
+
+            $this->logger?->error('Transaction failed: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            throw $e;
+        }
+    }
+
     public function __destruct()
     {
         $this->stmt = null;

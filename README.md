@@ -1,5 +1,5 @@
 # Solo Database
-[![Version](https://img.shields.io/badge/version-2.9.0-blue.svg)](https://github.com/solophp/database)
+[![Version](https://img.shields.io/badge/version-2.10.0-blue.svg)](https://github.com/solophp/database)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.
@@ -25,25 +25,57 @@ composer require solophp/database
 - PDO extension
 - Solo Logger ^1.0
 
+## API Reference
+
+| Method | Arguments | Description | Return Type |
+|--------|-----------|-------------|-------------|
+| `query()` | `string $sql, mixed ...$params` | Execute a query with placeholders | `self` |
+| `prepare()` | `string $sql, mixed ...$params` | Prepare SQL string without execution | `string` |
+| `fetchAll()` | `?int $fetchMode = null` | Fetch all rows | `array<int|string, array|stdClass>` |
+| `fetch()` | `?int $fetchMode = null` | Fetch single row | `array|stdClass|null` |
+| `fetchColumn()` | `int $columnIndex = 0` | Fetch single column from next row | `mixed` |
+| `lastInsertId()` | — | Get last inserted ID | `string|false` |
+| `rowCount()` | — | Get number of affected rows | `int` |
+| `beginTransaction()` | — | Begin transaction | `void` |
+| `commit()` | — | Commit transaction | `void` |
+| `rollBack()` | — | Roll back transaction | `void` |
+| `inTransaction()` | — | Check if in transaction | `bool` |
+| `withTransaction()` | `callable $callback` | Run logic inside a safe transaction (auto rollback on exception) | `mixed` |
+
+## Query Placeholders
+
+| Placeholder | Description |
+|-------------|-------------|
+| `?s` | String (safely quoted) |
+| `?i` | Integer |
+| `?f` | Float |
+| `?a` | Array (for IN statements) |
+| `?A` | Associative Array (for SET statements) |
+| `?t` | Table name (with prefix) |
+| `?c` | Column name (safely quoted) |
+| `?d` | Date (DateTimeImmutable or null) |
+| `?l` | LIKE condition with wildcards |
+| `?M` | Multi-row INSERT (array of arrays) |
+| `?r` | Raw parameter (unescaped) |
+
 ## Usage
 
 ### Basic Configuration
+
 ```php
 use Solo\Database\{Config, Connection};
 use Solo\Logger;
 use PDO;
 
-// Configure database connection with object fetch mode
 $config = new Config(
     hostname: 'localhost',
     username: 'user',
     password: 'pass',
     dbname: 'mydb',
     prefix: 'prefix_',
-    fetchMode: PDO::FETCH_OBJ  // Or PDO::FETCH_ASSOC for arrays
+    fetchMode: PDO::FETCH_OBJ
 );
 
-// Create connection with optional logging
 $logger = new Logger('/path/to/logs/db.log');
 $connection = new Connection($config, $logger);
 $db = new Database($connection);
@@ -52,11 +84,10 @@ $db = new Database($connection);
 ### Query Examples
 
 ```php
-// 1) Basic SELECT
+// Basic SELECT
 $users = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
-// By default, rows are fetched with the configured fetch mode (e.g., PDO::FETCH_OBJ)
 
-// 2) INSERT with an associative array
+// INSERT with associative array
 $userData = [
     'name' => 'John Doe',
     'email' => 'john@example.com',
@@ -65,125 +96,70 @@ $userData = [
 ];
 $db->query("INSERT INTO ?t SET ?A", 'users', $userData);
 
-// 3) INSERT multiple rows (bulk INSERT)
-$data = [
-    ['John', 30],
-    ['Alice', 25],
-];
+// INSERT multiple rows
+$data = [['John', 30], ['Alice', 25]];
 $db->query("INSERT INTO ?t (name, age) VALUES ?M", 'users', $data);
-// Generates: INSERT INTO `prefix_users` (name, age) VALUES ('John', 30), ('Alice', 25)
 
-// 4) Inserting with optional date fields
+// Handling null values
 $userData = [
-    'name' => 'John Doe',
-    'created_at' => new DateTimeImmutable(),  // Specific date
-    'updated_at' => null,                     // Null is now supported
-    'last_login' => null
+    'name' => 'Jane Doe',
+    'created_at' => new DateTimeImmutable(),
+    'updated_at' => null,
 ];
 $db->query("INSERT INTO ?t SET ?A", 'users', $userData);
 
-// 5) SELECT with different fetch modes
-// Using default fetch mode
-$usersDefault = $db->query("SELECT * FROM ?t", 'users')->fetchAll();
+// Fetch single row
+$user = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetch();
 
-// Override fetch mode for a specific query
-$userAssoc = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)
-    ->fetch(PDO::FETCH_ASSOC);
+// Override fetch mode
+$userArray = $db->query("SELECT * FROM ?t WHERE id = ?i", 'users', 1)->fetch(PDO::FETCH_ASSOC);
 
-// 6) SELECT with IN clause
+// IN clause
 $ids = [1, 2, 3];
-$result = $db->query("SELECT * FROM ?t WHERE id IN ?a", 'users', $ids)
-    ->fetchAll();
+$result = $db->query("SELECT * FROM ?t WHERE id IN ?a", 'users', $ids)->fetchAll();
 
-// 7) SELECT with a dynamic column name
+// Dynamic column
 $column = 'email';
-$userEmail = $db->query("SELECT ?c FROM ?t WHERE id = ?i", $column, 'users', 1)
-    ->fetch();
+$userEmail = $db->query("SELECT ?c FROM ?t WHERE id = ?i", $column, 'users', 1)->fetchColumn();
 
-// 8) Transactions example
+// Transaction (classic)
 try {
     $db->beginTransaction();
     
-    // Insert
-    $orderData = ['product' => 'Laptop', 'quantity' => 1, 'user_id' => 1];
-    $db->query("INSERT INTO ?t SET ?A", 'orders', $orderData);
-    
-    // Update
-    $amount = 799.99;
-    $userId = 1;
-    $db->query(
-        "UPDATE ?t SET balance = balance - ?f WHERE id = ?i", 
-        'accounts', 
-        $amount, 
-        $userId
-    );
+    $db->query("INSERT INTO ?t SET ?A", 'orders', ['product' => 'Laptop']);
+    $db->query("UPDATE ?t SET balance = balance - ?f WHERE id = ?i", 'accounts', 799.99, 1);
     
     $db->commit();
 } catch (Exception $e) {
+    if ($db->inTransaction()) {
     $db->rollBack();
+    }
     throw $e;
 }
 
-// 9) Prepare a query without executing it
-$sql = $db->prepare(
-    "SELECT * FROM ?t WHERE user_id = ?i AND status = ?s", 
-    'orders',
-    15,
-    'pending'
-);
-// Returns a prepared SQL string, e.g.:
-// SELECT * FROM prefix_orders WHERE user_id = 15 AND status = 'pending'
+// Transaction (preferred)
+$db->withTransaction(function () use ($db) {
+    $db->query("INSERT INTO ?t SET ?A", 'orders', ['product' => 'Laptop']);
+    $db->query("UPDATE ?t SET balance = balance - ?f WHERE id = ?i", 'accounts', 799.99, 1);
+});
 
-// 10) Single Column Fetch
-// Fetch the first column from the next row in the result set
+// Prepare only
+$sql = $db->prepare("SELECT * FROM ?t WHERE user_id = ?i AND status = ?s", 'orders', 15, 'pending');
+
+// Fetch column
 $email = $db->query("SELECT email FROM ?t WHERE id = ?i", 'users', 1)->fetchColumn();
-if ($email !== false) {
-    echo "User email: $email";
-} else {
-    echo "No user found!";
-}
 
-// If your query returns multiple columns, specify the column index:
-$db->query("SELECT id, email FROM ?t WHERE id = ?i", 'users', 2);
-$id = $db->fetchColumn(0);    // 'id' column
-$email = $db->fetchColumn(1); // 'email' column
-
-// 11) Using Raw Expressions 
-//Sometimes you need to insert raw SQL into your query—e.g., to call SQL functions or operators that shouldn’t be quoted as a string.
-
+// Raw expressions
 use Solo\Database\Expressions\RawExpression;
-
-// Example: updating a column with a CONCAT expression
-$db->query("
-    UPDATE ?t 
-    SET ?A
-    WHERE id = ?i
-", 
-'orders', 
-[
+$db->query("UPDATE ?t SET ?A WHERE id = ?i", 'orders', [
     'number' => new RawExpression("CONCAT(RIGHT(phone, 4), '-', id)")
-],
-42
-);
-
-//This ensures that CONCAT(RIGHT(phone, 4), '-', id) is injected as is, without quotes.
+], 42);
 ```
 
-## Query Placeholders
-- `?s` - String (safely quoted)
-- `?i` - Integer
-- `?f` - Float
-- `?a` - Array (for IN statements)
-- `?A` - Associative Array (for SET statements)
-- `?t` - Table name (with prefix)
-- `?c` - Column name (safely quoted)
-- `?d` - Date (expects DateTimeImmutable or null, formats according to database type)
-- `?l` - Like condition (adds % wildcards)
-- `?M` - Array of arrays (for multi-row INSERT queries)
-- `?r` - Raw parameter (unescaped)
-
 ## Database Support
-The library automatically handles date formatting for different database types:
+
+Date formatting is handled automatically per driver:
+
 - PostgreSQL: `Y-m-d H:i:s.u P`
 - MySQL: `Y-m-d H:i:s`
 - SQLite: `Y-m-d H:i:s`
@@ -192,17 +168,20 @@ The library automatically handles date formatting for different database types:
 - CUBRID: `Y-m-d H:i:s`
 
 ## Return Types
-The library provides type-safe return values:
-- `fetchAll(?int $fetchMode = null)`: Returns `array<int|string, array|stdClass>`
-- `fetch(?int $fetchMode = null)`: Returns `array|stdClass|null`
-- `fetchColumn(int $columnIndex = 0)`: Returns `mixed` (the value of the column or false if no more rows)
-- `rowCount()`: Returns `int`
-- `lastInsertId()`: Returns `string|false`
+
+| Method | Description | Return Type |
+|--------|-------------|-------------|
+| `fetchAll(?int $fetchMode = null)` | Get all rows | `array<int|string, array|stdClass>` |
+| `fetch(?int $fetchMode = null)` | Get one row | `array|stdClass|null` |
+| `fetchColumn(int $columnIndex = 0)` | Get column from next row | `mixed` |
+| `rowCount()` | Affected rows from last query | `int` |
+| `lastInsertId()` | Last inserted auto-increment ID | `string|false` |
 
 ## Error Handling
 - All database operations are wrapped in try-catch blocks
-- Throws exceptions with detailed error messages
-- Automatically logs errors when a logger is configured
+- Exceptions are thrown with meaningful messages
+- Logging is automatic when PSR-3 logger is configured
+- Transactions via `withTransaction()` auto-rollback on failure
 
 ## License
 MIT License. See LICENSE file for details.

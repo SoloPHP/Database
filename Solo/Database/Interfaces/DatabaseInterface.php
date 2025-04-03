@@ -78,4 +78,23 @@ interface DatabaseInterface
      * Rollback transaction
      */
     public function rollBack(): void;
+
+    /**
+     * Check if currently in a transaction
+     *
+     * @return bool True if inside a transaction
+     */
+    public function inTransaction(): bool;
+
+    /**
+     * Execute a callback wrapped in a database transaction
+     *
+     * Rolls back if exception occurs, commits otherwise.
+     *
+     * @param callable $callback
+     * @return mixed
+     *
+     * @throws Exception|\Throwable
+     */
+    public function withTransaction(callable $callback): mixed;
 }
