@@ -1,4 +1,8 @@
 # Solo Database
+
+> [!WARNING]
+> **Abandoned.** This package is no longer maintained and gets no fixes. Use [Doctrine DBAL](https://www.doctrine-project.org/projects/dbal.html) instead, with [solophp/repository](https://solophp.github.io/Repository/) for typed repositories. The current Solo packages are listed at [solophp.github.io](https://solophp.github.io/packages.html).
+
 [![Version](https://img.shields.io/badge/version-2.10.0-blue.svg)](https://github.com/solophp/database)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 

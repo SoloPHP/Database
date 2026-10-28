@@ -2,6 +2,7 @@
   "name": "solophp/database",
   "type": "library",
   "description": "Lightweight and flexible PHP database wrapper with support for multiple database types, query building, and optional logging.",
+  "abandoned": "doctrine/dbal",
   "keywords": ["database","dbal","pdo","php"],
   "license": "MIT",
   "authors": [
